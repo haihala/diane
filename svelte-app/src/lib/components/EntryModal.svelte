@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import MarkdownEditor from './MarkdownEditor.svelte';
 	import { createEntry, updateEntry } from '$lib/services/entries';
 	import type { Entry } from '$lib/types/Entry';
 
@@ -87,13 +88,13 @@
 		isSaving = false;
 		showSavedMessage = false;
 		error = null;
-		
+
 		// Clear any pending timers
 		if (debounceTimer) {
 			clearTimeout(debounceTimer);
 			debounceTimer = null;
 		}
-		
+
 		onClose();
 	}
 
@@ -178,15 +179,12 @@
 
 			<div class="form-group">
 				<label for="entry-content" class="form-label">Content</label>
-				<textarea
-					id="entry-content"
-					class="form-textarea"
-					placeholder="What's on your mind?"
+				<MarkdownEditor
 					bind:value={content}
 					oninput={handleInput}
-					rows="10"
+					placeholder="What's on your mind?"
 					disabled={isSaving}
-				></textarea>
+				/>
 			</div>
 		</div>
 
@@ -210,7 +208,12 @@
 				>
 					Cancel
 				</button>
-				<button type="button" class="button button-primary" onclick={handleSave} disabled={isSaving}>
+				<button
+					type="button"
+					class="button button-primary"
+					onclick={handleSave}
+					disabled={isSaving}
+				>
 					{isSaving ? 'Saving...' : 'Save Entry'}
 				</button>
 			{/if}
@@ -317,8 +320,7 @@
 		margin-bottom: var(--spacing-sm);
 	}
 
-	.form-input,
-	.form-textarea {
+	.form-input {
 		width: 100%;
 		padding: var(--spacing-md);
 		border: 1px solid var(--color-border);
@@ -329,17 +331,10 @@
 		transition: all var(--transition-fast);
 	}
 
-	.form-input:focus,
-	.form-textarea:focus {
+	.form-input:focus {
 		outline: none;
 		border-color: var(--color-primary);
 		box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
-	}
-
-	.form-textarea {
-		resize: vertical;
-		min-height: 120px;
-		font-family: inherit;
 	}
 
 	.modal-footer {
