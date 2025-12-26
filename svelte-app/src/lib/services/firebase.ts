@@ -2,22 +2,19 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, connectAuthEmulator, GoogleAuthProvider } from 'firebase/auth';
 import { browser, dev } from '$app/environment';
-
-// Get environment variables with proper typing
-const getEnvVar = (key: string, fallback: string): string => {
-	if (browser && import.meta.env[key]) {
-		return import.meta.env[key] as string;
-	}
-	return fallback;
-};
+import {
+	PUBLIC_FIREBASE_API_KEY,
+	PUBLIC_FIREBASE_AUTH_DOMAIN,
+	PUBLIC_FIREBASE_PROJECT_ID
+} from '$env/static/public';
 
 // Firebase configuration
-// In production, these come from environment variables
-// In development/emulator mode, the actual values don't matter
+// In production, these come from environment variables set at build time
+// In development/emulator mode, we use demo values that work with the emulator
 const firebaseConfig = {
-	apiKey: getEnvVar('PUBLIC_FIREBASE_API_KEY', 'demo-api-key'),
-	authDomain: getEnvVar('PUBLIC_FIREBASE_AUTH_DOMAIN', 'diane-prod.firebaseapp.com'),
-	projectId: getEnvVar('PUBLIC_FIREBASE_PROJECT_ID', 'diane-prod')
+	apiKey: PUBLIC_FIREBASE_API_KEY || 'demo-api-key',
+	authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN || 'diane-prod.firebaseapp.com',
+	projectId: PUBLIC_FIREBASE_PROJECT_ID || 'diana-prod'
 };
 
 // Initialize Firebase
