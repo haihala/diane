@@ -1,0 +1,120 @@
+# Diane
+
+A personal knowledge management and journaling system inspired by Special Agent
+Dale Cooper's voice memos to Diane in Twin Peaks.
+
+## Vision
+
+Diane is designed to be your digital assistant for capturing and organizing
+thoughts, ideas, tasks, and experiences. Like Cooper's recordings, it serves as
+a medium for externalizing your thoughts - but unlike the show, Diane actually
+responds and helps you make sense of it all.
+
+## What Diane Does
+
+### Content Types
+
+- **Vague Ideas** - Capture fleeting thoughts without overthinking structure
+  - Tasks and todos
+  - Experiences and reflections
+  - Media to consume (books, movies, games)
+- **Numerical Tracking** - Log quantifiable data over time
+  - Weight, fitness metrics
+  - Habit tracking
+  - Progress measurements
+- **Media Trackers** - Manage your consumption and collections
+- **Interconnected Documents** - Build rich, wiki-like knowledge bases
+  - Game design specs
+  - World building
+  - RPG campaign notes
+  - Any complex topic that benefits from linked thinking
+
+### Core Principles
+
+1. **Frictionless Capture** - Logging should be quick and easy
+2. **Mobile-First** - Accessible anywhere, anytime
+3. **Minimal Maintenance** - The system works for you, not vice versa
+4. **Interconnected** - Ideas link together naturally, like a personal wiki
+5. **Intelligent Search** - Semantic search understands what you mean, not just what you say
+6. **Selective Sharing** - Share specific parts with others when needed
+
+## Tech Stack
+
+- **Frontend**: SvelteKit (Svelte 5) with TypeScript
+- **Backend**: Firebase (Firestore, Auth, Hosting, Functions)
+- **Build**: Vite with static adapter
+- **Code Quality**: ESLint (strict), Prettier, TypeScript (strict mode)
+
+## Project Structure
+
+```
+diane/
+├── svelte-app/          # SvelteKit frontend application
+│   ├── src/
+│   │   ├── lib/         # Shared components, utilities, services
+│   │   └── routes/      # File-based routing
+│   └── package.json
+├── functions/           # Firebase Cloud Functions (Python)
+│   └── main.py
+├── firestore.rules      # Database security rules
+├── storage.rules        # Storage security rules
+└── firebase.json        # Firebase configuration
+```
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 22+ and npm
+- Firebase CLI: `npm install -g firebase-tools`
+
+### Development
+
+1. Install dependencies:
+
+```sh
+cd svelte-app
+npm install
+```
+
+2. Start the development server:
+
+```sh
+npm run dev
+```
+
+3. Before committing, validate your code:
+
+```sh
+npm run validate
+```
+
+### Deployment
+
+The project uses GitHub Actions for CI/CD:
+
+- Pull requests trigger preview deployments
+- Merges to main deploy to production
+
+Manual deployment:
+
+```sh
+firebase deploy
+```
+
+## Documentation
+
+- [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture and design decisions
+- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - Development roadmap and milestones
+- [CONVENTIONS.md](CONVENTIONS.md) - Coding standards and best practices
+- [COMPONENT_STANDARDS.md](COMPONENT_STANDARDS.md) - UI component guidelines
+- [ESLINT.md](ESLINT.md) - Linting rules reference
+- [agents.md](agents.md) - AI agent collaboration guidelines
+
+## Current Status
+
+This project is in early development. See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the detailed roadmap.
+
+## License
+
+Private project - All rights reserved
