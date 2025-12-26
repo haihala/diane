@@ -20,6 +20,7 @@
 	let inputElement: HTMLInputElement | undefined = $state();
 	let popoverElement: HTMLDivElement | undefined = $state();
 	let searchResults = $state<Entry[]>([]);
+	let editingEntry = $state<Entry | undefined>(undefined);
 
 	// Auto-focus on mount if requested
 	onMount(() => {
@@ -134,11 +135,13 @@
 		if (!option) return;
 
 		if (option.type === 'new') {
+			editingEntry = undefined;
 			isModalOpen = true;
 			isFocused = false;
 		} else if (option.type === 'result' && option.data) {
-			onSubmit?.(option.data.title);
-			inputValue = '';
+			// Open edit modal instead of submitting
+			editingEntry = option.data;
+			isModalOpen = true;
 			isFocused = false;
 		}
 	}
@@ -149,6 +152,7 @@
 
 	function handleModalClose(): void {
 		isModalOpen = false;
+		editingEntry = undefined;
 		inputElement?.focus();
 	}
 
@@ -234,6 +238,7 @@
 	onClose={handleModalClose}
 	onSave={handleModalSave}
 	initialTitle={inputValue.trim()}
+	entry={editingEntry}
 />
 
 <style>

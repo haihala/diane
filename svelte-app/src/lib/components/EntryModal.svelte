@@ -1,37 +1,99 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
-	import { createEntry } from '$lib/services/entries';
+	import { createEntry, updateEntry } from '$lib/services/entries';
+	import type { Entry } from '$lib/types/Entry';
 
 	interface Props {
 		isOpen: boolean;
 		onClose: () => void;
 		onSave?: () => void;
 		initialTitle?: string;
+		entry?: Entry;
 	}
 
-	const { isOpen = false, onClose, onSave, initialTitle = '' }: Props = $props();
+	const { isOpen = false, onClose, onSave, initialTitle = '', entry }: Props = $props();
 
 	let title = $state('');
 	let content = $state('');
 	let dialogElement: HTMLDialogElement | undefined = $state();
 	let isSaving = $state(false);
 	let error = $state<string | null>(null);
+	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let showSavedMessage = $state(false);
 
 	// Handle opening/closing the dialog and set initial title
 	$effect(() => {
 		if (dialogElement) {
 			if (isOpen && !dialogElement.open) {
 				dialogElement.showModal();
-				title = initialTitle;
+				// Set initial values based on whether we're editing or creating
+				if (entry) {
+					title = entry.title;
+					content = entry.content;
+				} else {
+					title = initialTitle;
+					content = '';
+				}
 			} else if (!isOpen && dialogElement.open) {
 				dialogElement.close();
 			}
 		}
 	});
 
+	function handleInput(): void {
+		// Only auto-save when editing an existing entry
+		if (!entry) return;
+
+		// Clear any existing timer
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+		}
+
+		// Reset saved message when user types
+		showSavedMessage = false;
+
+		// Set up new debounce timer
+		debounceTimer = setTimeout(async () => {
+			if (title.trim() || content.trim()) {
+				await autoSave();
+			}
+		}, 1000);
+	}
+
+	async function autoSave(): Promise<void> {
+		if (!entry) return;
+
+		isSaving = true;
+		error = null;
+
+		try {
+			await updateEntry(entry.id, {
+				title: title.trim(),
+				content: content.trim()
+			});
+			onSave?.();
+			isSaving = false;
+			showSavedMessage = true;
+		} catch (err) {
+			console.error('Failed to auto-save entry:', err);
+			error = err instanceof Error ? err.message : 'Failed to save entry';
+			isSaving = false;
+		}
+	}
+
 	function handleClose(): void {
 		title = '';
 		content = '';
+		isSaving = false;
+		showSavedMessage = false;
+		error = null;
+		
+		// Clear any pending timers
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+			debounceTimer = null;
+		}
+		
 		onClose();
 	}
 
@@ -44,10 +106,19 @@
 		error = null;
 
 		try {
-			await createEntry({
-				title: title.trim(),
-				content: content.trim()
-			});
+			if (entry) {
+				// Update existing entry
+				await updateEntry(entry.id, {
+					title: title.trim(),
+					content: content.trim()
+				});
+			} else {
+				// Create new entry
+				await createEntry({
+					title: title.trim(),
+					content: content.trim()
+				});
+			}
 			onSave?.();
 			handleClose();
 		} catch (err) {
@@ -81,7 +152,7 @@
 >
 	<div class="modal-content" role="document">
 		<header class="modal-header">
-			<h2 id="modal-title" class="modal-title">New Entry</h2>
+			<h2 id="modal-title" class="modal-title">{entry ? 'Edit Entry' : 'New Entry'}</h2>
 			<button type="button" class="close-button" onclick={handleClose} aria-label="Close dialog">
 				<Icon name="x" size={24} />
 			</button>
@@ -100,6 +171,7 @@
 					class="form-input"
 					placeholder="Entry title..."
 					bind:value={title}
+					oninput={handleInput}
 					disabled={isSaving}
 				/>
 			</div>
@@ -111,24 +183,37 @@
 					class="form-textarea"
 					placeholder="What's on your mind?"
 					bind:value={content}
+					oninput={handleInput}
 					rows="10"
 					disabled={isSaving}
 				></textarea>
 			</div>
 		</div>
 
-		<footer class="modal-footer">
-			<button
-				type="button"
-				class="button button-secondary"
-				onclick={handleClose}
-				disabled={isSaving}
-			>
-				Cancel
-			</button>
-			<button type="button" class="button button-primary" onclick={handleSave} disabled={isSaving}>
-				{isSaving ? 'Saving...' : 'Save Entry'}
-			</button>
+		<footer class="modal-footer" class:footer-edit-mode={entry}>
+			{#if entry}
+				<!-- Edit mode: always show saving indicator to prevent layout shift -->
+				<div class="saving-indicator">
+					{#if isSaving}
+						<span class="saving-text">Saving...</span>
+					{:else if showSavedMessage}
+						<span class="saved-text">All changes saved</span>
+					{/if}
+				</div>
+			{:else}
+				<!-- Create mode: show cancel and save buttons -->
+				<button
+					type="button"
+					class="button button-secondary"
+					onclick={handleClose}
+					disabled={isSaving}
+				>
+					Cancel
+				</button>
+				<button type="button" class="button button-primary" onclick={handleSave} disabled={isSaving}>
+					{isSaving ? 'Saving...' : 'Save Entry'}
+				</button>
+			{/if}
 		</footer>
 	</div>
 </dialog>
@@ -260,9 +345,47 @@
 	.modal-footer {
 		display: flex;
 		justify-content: flex-end;
+		align-items: center;
 		gap: var(--spacing-md);
 		padding: var(--spacing-lg);
 		border-top: 1px solid var(--color-border);
+	}
+
+	.modal-footer.footer-edit-mode {
+		border-top: none;
+		padding-top: 0;
+	}
+
+	.saving-indicator {
+		flex: 1;
+		display: flex;
+		align-items: center;
+		min-height: 1.5em;
+	}
+
+	.saving-text {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		font-style: italic;
+	}
+
+	.saved-text {
+		font-size: var(--font-size-sm);
+		color: var(--color-primary);
+		font-weight: var(--font-weight-medium);
+		animation: fadeOut 5s ease-in-out forwards;
+	}
+
+	@keyframes fadeOut {
+		0% {
+			opacity: 1;
+		}
+		70% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+		}
 	}
 
 	.button {

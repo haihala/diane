@@ -5,6 +5,8 @@ import {
 	query,
 	orderBy,
 	Timestamp,
+	doc,
+	updateDoc,
 	type QueryConstraint
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -75,4 +77,16 @@ export async function searchEntries(searchTerm: string): Promise<Entry[]> {
  */
 export async function getAllEntries(): Promise<Entry[]> {
 	return searchEntries('');
+}
+
+/**
+ * Updates an existing entry in Firestore
+ */
+export async function updateEntry(id: string, input: CreateEntryInput): Promise<void> {
+	const entryRef = doc(db, ENTRIES_COLLECTION, id);
+	await updateDoc(entryRef, {
+		title: input.title,
+		content: input.content,
+		updatedAt: Timestamp.fromDate(new Date())
+	});
 }
