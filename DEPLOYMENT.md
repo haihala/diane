@@ -55,18 +55,14 @@ firebase apps:sdkconfig web --project diane-prod
 
 ### For GitHub Actions / CI/CD
 
-GitHub Actions needs environment variables for production builds. 
-
-**See [.github/SECRETS_SETUP.md](../.github/SECRETS_SETUP.md) for detailed instructions.**
-
-**Quick summary**:
+GitHub Actions needs environment variables for production builds. Set these up in your repository settings:
 
 1. Go to your GitHub repository
 2. Navigate to **Settings** > **Secrets and variables** > **Actions**
-3. Add repository secrets for each variable:
-   - `PUBLIC_FIREBASE_API_KEY`
-   - `PUBLIC_FIREBASE_AUTH_DOMAIN`
-   - `PUBLIC_FIREBASE_PROJECT_ID`
+3. Click **New repository secret** for each variable:
+   - Name: `PUBLIC_FIREBASE_API_KEY`, Value: your API key
+   - Name: `PUBLIC_FIREBASE_AUTH_DOMAIN`, Value: your auth domain
+   - Name: `PUBLIC_FIREBASE_PROJECT_ID`, Value: your project ID
 
 The workflows (`.github/workflows/*.yml`) are already configured to use these secrets.
 

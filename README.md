@@ -104,44 +104,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for complete production deployment instructio
 - GitHub Actions setup
 - Security best practices
 
-2. Start Firebase emulators (required for local development):
-
-```sh
-# From the project root
-firebase emulators:start
-```
-
-This starts:
-- Firestore emulator on port 8080
-- Auth emulator on port 9099
-- Functions emulator on port 5001
-- Hosting emulator on port 5000
-- Emulator UI on http://localhost:4000
-
-3. In a separate terminal, start the development server:
-
-```sh
-cd svelte-app
-npm run dev
-```
-
-The app will connect to the local Firebase emulators automatically when running on localhost.
-
-4. Before committing, validate your code:
-
-```sh
-npm run validate
-```
-
-### Deployment
-
-The project uses GitHub Actions for CI/CD:
-
-- Pull requests trigger preview deployments
-- Merges to main deploy to production
-
-Manual deployment:
-
+**Quick deployment**:
 ```sh
 firebase deploy
 ```
@@ -149,15 +112,19 @@ firebase deploy
 ## Documentation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture and design decisions
-- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) - Development roadmap and milestones
-- [CONVENTIONS.md](CONVENTIONS.md) - Coding standards and best practices
+- [CONVENTIONS.md](CONVENTIONS.md) - Coding standards, linting rules, and best practices
 - [COMPONENT_STANDARDS.md](COMPONENT_STANDARDS.md) - UI component guidelines
-- [ESLINT.md](ESLINT.md) - Linting rules reference
+- [DEVELOPMENT.md](DEVELOPMENT.md) - Local development setup with emulators
+- [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment guide
 - [agents.md](agents.md) - AI agent collaboration guidelines
 
 ## Current Status
 
-This project is in early development. See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the detailed roadmap.
+This project is in early development. Current features:
+- Basic UI with search bar and entry creation
+- Firebase Firestore integration for data persistence
+- Markdown support for entries
+- Dark theme with gradient backgrounds
 
 ## License
 

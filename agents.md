@@ -500,6 +500,12 @@ When reviewing or generating code, ensure:
 - [Svelte 5 Documentation](https://svelte.dev/docs/svelte/overview)
 - [Firebase Documentation](https://firebase.google.com/docs)
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/)
+- Project Documentation:
+  - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture
+  - [CONVENTIONS.md](CONVENTIONS.md) - Coding standards and ESLint rules
+  - [COMPONENT_STANDARDS.md](COMPONENT_STANDARDS.md) - Component guidelines
+  - [DEVELOPMENT.md](DEVELOPMENT.md) - Local development setup
+  - [DEPLOYMENT.md](DEPLOYMENT.md) - Production deployment
 
 ## Conclusion
 
