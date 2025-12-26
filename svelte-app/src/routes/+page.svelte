@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SearchBar from '$lib/components/SearchBar.svelte';
+	import { signOut, user } from '$lib/services/auth';
 
 	function handleSearch(value: string): void {
 		// Search functionality is now handled internally by SearchBar
@@ -12,6 +13,14 @@
 		// eslint-disable-next-line no-console
 		console.log('New entry saved');
 	}
+
+	async function handleSignOut(): Promise<void> {
+		try {
+			await signOut();
+		} catch (error) {
+			console.error('Error signing out:', error);
+		}
+	}
 </script>
 
 <div class="page-container">
@@ -21,6 +30,12 @@
 				<h1 class="logo-text">Diane</h1>
 				<p class="tagline">Your personal knowledge companion</p>
 			</div>
+			{#if $user}
+				<div class="user-section">
+					<span class="user-email">{$user.email}</span>
+					<button class="sign-out-button" on:click={handleSignOut}> Sign Out </button>
+				</div>
+			{/if}
 		</header>
 
 		<main class="main-content">
@@ -58,6 +73,42 @@
 	.header {
 		margin-bottom: var(--spacing-3xl);
 		text-align: center;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--spacing-lg);
+	}
+
+	.user-section {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-md);
+		padding: var(--spacing-sm) var(--spacing-md);
+		background: var(--color-surface);
+		border-radius: var(--radius-lg);
+		border: 1px solid var(--color-border);
+	}
+
+	.user-email {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+	}
+
+	.sign-out-button {
+		padding: var(--spacing-xs) var(--spacing-md);
+		background: transparent;
+		color: var(--color-text-secondary);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		font-size: var(--font-size-sm);
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.sign-out-button:hover {
+		background: var(--color-bg-secondary);
+		color: var(--color-text);
+		border-color: var(--color-primary);
 	}
 
 	.logo {
