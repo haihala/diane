@@ -1,0 +1,78 @@
+import {
+	collection,
+	addDoc,
+	getDocs,
+	query,
+	orderBy,
+	Timestamp,
+	type QueryConstraint
+} from 'firebase/firestore';
+import { db } from './firebase';
+import type { Entry, CreateEntryInput } from '$lib/types/Entry';
+
+const ENTRIES_COLLECTION = 'entries';
+
+interface EntryDocument {
+	title: string;
+	content: string;
+	createdAt: { toDate: () => Date };
+	updatedAt: { toDate: () => Date };
+}
+
+/**
+ * Creates a new entry in Firestore
+ */
+export async function createEntry(input: CreateEntryInput): Promise<Entry> {
+	const now = new Date();
+
+	const docRef = await addDoc(collection(db, ENTRIES_COLLECTION), {
+		title: input.title,
+		content: input.content,
+		createdAt: Timestamp.fromDate(now),
+		updatedAt: Timestamp.fromDate(now)
+	});
+
+	return {
+		id: docRef.id,
+		title: input.title,
+		content: input.content,
+		createdAt: now,
+		updatedAt: now
+	};
+}
+
+/**
+ * Searches entries by title
+ */
+export async function searchEntries(searchTerm: string): Promise<Entry[]> {
+	const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')];
+
+	const q = query(collection(db, ENTRIES_COLLECTION), ...constraints);
+	const snapshot = await getDocs(q);
+
+	const entries = snapshot.docs.map((doc) => {
+		const data = doc.data() as EntryDocument;
+		return {
+			id: doc.id,
+			title: data.title,
+			content: data.content,
+			createdAt: data.createdAt.toDate(),
+			updatedAt: data.updatedAt.toDate()
+		} as Entry;
+	});
+
+	// Filter by title on client-side (Firestore doesn't support contains queries)
+	if (searchTerm) {
+		const lowerSearch = searchTerm.toLowerCase();
+		return entries.filter((entry) => entry.title.toLowerCase().includes(lowerSearch));
+	}
+
+	return entries;
+}
+
+/**
+ * Gets all entries ordered by creation date
+ */
+export async function getAllEntries(): Promise<Entry[]> {
+	return searchEntries('');
+}

@@ -41,7 +41,7 @@ responds and helps you make sense of it all.
 ## Tech Stack
 
 - **Frontend**: SvelteKit (Svelte 5) with TypeScript
-- **Backend**: Firebase (Firestore, Auth, Hosting, Functions)
+- **Backend**: Firebase (Firestore + static hosting)
 - **Build**: Vite with static adapter
 - **Code Quality**: ESLint (strict), Prettier, TypeScript (strict mode)
 
@@ -70,20 +70,64 @@ diane/
 
 ### Development
 
+See [DEVELOPMENT.md](DEVELOPMENT.md) for complete development setup instructions.
+
+**Quick start**:
+
 1. Install dependencies:
+   ```sh
+   cd svelte-app
+   npm install
+   ```
+
+2. Start Firebase emulators (required):
+   ```sh
+   firebase emulators:start
+   ```
+
+3. Start dev server (in a new terminal):
+   ```sh
+   cd svelte-app
+   npm run dev
+   ```
+
+4. Before committing, validate:
+   ```sh
+   npm run validate
+   ```
+
+### Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for complete production deployment instructions including:
+- Firebase web app registration
+- Environment variable configuration
+- GitHub Actions setup
+- Security best practices
+
+2. Start Firebase emulators (required for local development):
+
+```sh
+# From the project root
+firebase emulators:start
+```
+
+This starts:
+- Firestore emulator on port 8080
+- Auth emulator on port 9099
+- Functions emulator on port 5001
+- Hosting emulator on port 5000
+- Emulator UI on http://localhost:4000
+
+3. In a separate terminal, start the development server:
 
 ```sh
 cd svelte-app
-npm install
-```
-
-2. Start the development server:
-
-```sh
 npm run dev
 ```
 
-3. Before committing, validate your code:
+The app will connect to the local Firebase emulators automatically when running on localhost.
+
+4. Before committing, validate your code:
 
 ```sh
 npm run validate

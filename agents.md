@@ -57,10 +57,13 @@ svelte-app/src/
     services/         # API calls and external service integrations
     types/            # TypeScript type definitions
     constants/        # Application constants
-    assets/           # Static assets (images, fonts)
   routes/             # SvelteKit file-based routing
     (auth)/           # Route groups for organization
     api/              # API endpoints (if needed)
+svelte-app/static/    # Static assets (MUST be here for production builds)
+  icons/              # SVG icons
+  images/             # Images
+  fonts/              # Fonts
 ```
 
 **File Naming**:
@@ -170,9 +173,11 @@ export function authState() {
 - Keep initial bundle size minimal
 
 **Asset Optimization**:
+- **All runtime assets must be in the `static/` folder** (icons, images, fonts, etc.)
 - Optimize images before committing
 - Use appropriate image formats (WebP, AVIF)
 - Implement lazy loading for images
+- Files in `static/` are accessible at `/filename` in the build output
 
 ### 7. Styling Standards
 
@@ -209,6 +214,44 @@ export function authState() {
   --spacing-md: 1rem;
   --radius-sm: 0.25rem;
 }
+```
+
+**SVG Assets**:
+- **Never include SVG markup directly in component templates** - it's completely illegible to humans
+- **Store all SVG files in the `static/` directory** for SvelteKit static adapter compatibility
+- Files in `static/` are copied to the build output and accessible at runtime
+- **DO NOT** store SVG files in `lib/assets/` - they won't be accessible in the production build
+- For icon systems, create a dedicated Icon component that references SVG files from `/icons/` (which maps to `static/icons/`)
+
+```svelte
+<!-- ❌ Bad - Inline SVG markup is illegible -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+  <path d="M12 5v14" />
+  <path d="M5 12h14" />
+</svg>
+
+<!-- ❌ Bad - Will not work in production build -->
+<img src="$lib/assets/icons/plus.svg" alt="Add" />
+
+<!-- ✅ Good - Reference SVG from static folder -->
+<img src="/icons/plus.svg" alt="Add" />
+
+<!-- ✅ Good - Use an Icon component that references static assets -->
+<Icon name="plus" size={24} />
+<!-- Where Icon.svelte uses: <img src="/icons/{name}.svg" /> -->
+```
+
+**Static Asset Structure**:
+```
+svelte-app/
+  static/           # Static files copied to build output
+    icons/          # SVG icons
+    images/         # Images
+    fonts/          # Fonts
+    robots.txt      # Other static files
+  src/
+    lib/
+      assets/       # AVOID storing runtime assets here - won't be in build
 ```
 
 ### 8. ESLint Configuration
@@ -263,7 +306,13 @@ tests/
   e2e/
 ```
 
-### 10. Firebase Integration
+### Firebase Integration
+
+**Development Setup**:
+- **Always use Firebase emulators for local development**
+- Start emulators before running the dev server: `firebase emulators:start`
+- The app automatically connects to emulators when running on localhost
+- Emulator configuration is in `firebase.json`
 
 **Functions**:
 - Keep Python functions in `functions/` directory
@@ -274,10 +323,16 @@ tests/
 - Define clear data models
 - Use TypeScript interfaces matching Firestore schemas
 - Implement proper security rules
+- In development, data is stored in the emulator (not persisted between restarts)
 
 **Storage**:
 - Organize files with clear naming conventions
 - Implement proper access controls
+
+**Production Configuration**:
+- Replace mock Firebase credentials with real ones before deploying
+- Use environment variables for sensitive configuration
+- Test with emulators before deploying to production
 
 ### 10. Documentation
 
@@ -357,6 +412,8 @@ When reviewing or generating code, ensure:
 - [ ] Performance implications considered
 - [ ] Code is self-documenting (clear names, good types)
 - [ ] Styles use global CSS variables where appropriate
+- [ ] **No inline SVG markup** - use static folder for SVG files
+- [ ] **Static assets are in `static/` folder** - not in `lib/assets/`
 - [ ] No hardcoded values that should be constants
 - [ ] Error handling is implemented
 - [ ] Loading states are handled
@@ -407,6 +464,9 @@ When reviewing or generating code, ensure:
 - No server-side rendering at runtime
 - Use `export const prerender = true` when needed
 - Configure proper 404 handling in `firebase.json`
+- **All runtime assets (images, icons, fonts) must be in `static/` folder**
+- Files in `static/` are copied to the build output root
+- Reference static assets with absolute paths: `/icons/file.svg` not `$lib/assets/icons/file.svg`
 
 ### Functions
 

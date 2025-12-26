@@ -1,19 +1,92 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import EntryModal from './EntryModal.svelte';
+	import Icon from './Icon.svelte';
+	import { searchEntries } from '$lib/services/entries';
+	import type { Entry } from '$lib/types/Entry';
+
 	interface Props {
-		placeholder?: string;
 		onSubmit?: (value: string) => void;
+		onNewEntry?: () => void;
+		autoFocus?: boolean;
 	}
 
-	const { placeholder = 'Ask Diane anything...', onSubmit }: Props = $props();
+	const { onSubmit, onNewEntry, autoFocus = false }: Props = $props();
 
 	let inputValue = $state('');
 	let isFocused = $state(false);
+	let isModalOpen = $state(false);
+	let selectedIndex = $state(0);
+	let inputElement: HTMLInputElement | undefined = $state();
+	let popoverElement: HTMLDivElement | undefined = $state();
+	let searchResults = $state<Entry[]>([]);
+
+	// Auto-focus on mount if requested
+	onMount(() => {
+		if (autoFocus && inputElement) {
+			inputElement.focus();
+		}
+	});
+
+	// Search entries when input changes
+	$effect(() => {
+		const searchTerm = inputValue.trim();
+		if (searchTerm) {
+			searchEntries(searchTerm)
+				.then((results) => {
+					searchResults = results;
+				})
+				.catch((err) => {
+					console.error('Search failed:', err);
+					searchResults = [];
+				});
+		} else {
+			searchResults = [];
+		}
+	});
+
+	// Create dynamic placeholder with current time
+	const dynamicPlaceholder = $derived.by(() => {
+		const now = new Date();
+		const timeStr = now.toLocaleTimeString('en-US', {
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		});
+		const dateStr = now.toLocaleDateString('en-US', {
+			month: 'long',
+			day: 'numeric'
+		});
+		return `Diane, it's ${timeStr}, ${dateStr}...`;
+	});
+
+	// All popover options (add new entry + search results)
+	const popoverOptions = $derived.by(() => {
+		const options: Array<{ type: 'new' | 'result'; data?: Entry }> = [{ type: 'new' }];
+		searchResults.forEach((result) => options.push({ type: 'result', data: result }));
+		return options;
+	});
+
+	const showPopover = $derived(isFocused && popoverOptions.length > 0);
+
+	// Reset selection when options change
+	$effect(() => {
+		if (popoverOptions.length > 0) {
+			selectedIndex = 0;
+		}
+	});
+
+	// Expose focus method to parent
+	export function focus(): void {
+		inputElement?.focus();
+	}
 
 	function handleSubmit(e: SubmitEvent): void {
 		e.preventDefault();
 		if (inputValue.trim() && onSubmit) {
 			onSubmit(inputValue.trim());
 			inputValue = '';
+			inputElement?.blur();
 		}
 	}
 
@@ -21,8 +94,67 @@
 		isFocused = true;
 	}
 
-	function handleBlur(): void {
-		isFocused = false;
+	function handleBlur(e: FocusEvent): void {
+		// Delay blur to allow clicks on popover items
+		const relatedTarget = e.relatedTarget as HTMLElement;
+		if (popoverElement?.contains(relatedTarget)) {
+			return;
+		}
+		setTimeout(() => {
+			isFocused = false;
+		}, 150);
+	}
+
+	function handleKeydown(e: KeyboardEvent): void {
+		if (!showPopover) return;
+
+		switch (e.key) {
+			case 'ArrowDown':
+				e.preventDefault();
+				selectedIndex = (selectedIndex + 1) % popoverOptions.length;
+				break;
+			case 'ArrowUp':
+				e.preventDefault();
+				selectedIndex = selectedIndex === 0 ? popoverOptions.length - 1 : selectedIndex - 1;
+				break;
+			case 'Enter':
+				e.preventDefault();
+				selectOption(selectedIndex);
+				break;
+			case 'Escape':
+				e.preventDefault();
+				inputElement?.blur();
+				isFocused = false;
+				break;
+		}
+	}
+
+	function selectOption(index: number): void {
+		const option = popoverOptions[index];
+		if (!option) return;
+
+		if (option.type === 'new') {
+			isModalOpen = true;
+			isFocused = false;
+		} else if (option.type === 'result' && option.data) {
+			onSubmit?.(option.data.title);
+			inputValue = '';
+			isFocused = false;
+		}
+	}
+
+	function handleOptionClick(index: number): void {
+		selectOption(index);
+	}
+
+	function handleModalClose(): void {
+		isModalOpen = false;
+		inputElement?.focus();
+	}
+
+	function handleModalSave(): void {
+		onNewEntry?.();
+		inputValue = '';
 	}
 </script>
 
@@ -30,41 +162,86 @@
 	<form class="search-form" class:focused={isFocused} onsubmit={handleSubmit}>
 		<div class="input-wrapper">
 			<input
+				bind:this={inputElement}
 				type="text"
 				class="search-input"
-				{placeholder}
+				placeholder={dynamicPlaceholder}
 				bind:value={inputValue}
 				onfocus={handleFocus}
 				onblur={handleBlur}
+				onkeydown={handleKeydown}
 				aria-label="Search input"
+				aria-controls="search-popover"
+				aria-activedescendant={showPopover ? `option-${selectedIndex}` : undefined}
 			/>
 			{#if inputValue.trim()}
 				<button type="submit" class="submit-button" aria-label="Submit search">
-					<svg
-						xmlns="http://www.w3.org/2000/svg"
-						width="20"
-						height="20"
-						viewBox="0 0 24 24"
-						fill="none"
-						stroke="currentColor"
-						stroke-width="2"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-					>
-						<path d="M5 12h14" />
-						<path d="m12 5 7 7-7 7" />
-					</svg>
+					<Icon name="arrow-right" size={20} />
 				</button>
 			{/if}
 		</div>
 	</form>
+
+	{#if showPopover}
+		<div
+			bind:this={popoverElement}
+			id="search-popover"
+			class="popover"
+			role="listbox"
+			aria-label="Search options"
+		>
+			{#each popoverOptions as option, index (index)}
+				<button
+					type="button"
+					id="option-{index}"
+					class="popover-option"
+					class:selected={index === selectedIndex}
+					role="option"
+					aria-selected={index === selectedIndex}
+					onclick={() => handleOptionClick(index)}
+					tabindex="-1"
+				>
+					{#if option.type === 'new'}
+						<div class="option-icon">
+							<Icon name="plus" size={20} />
+						</div>
+						<div class="option-content">
+							{#if inputValue.trim()}
+								<div class="option-title">Add New Entry: "{inputValue.trim()}"</div>
+								<div class="option-subtitle">Create a new note with this title</div>
+							{:else}
+								<div class="option-title">Add New Entry</div>
+								<div class="option-subtitle">Create a new note or document</div>
+							{/if}
+						</div>
+					{:else if option.data}
+						<div class="option-icon option-icon-result">
+							<Icon name="file" size={20} />
+						</div>
+						<div class="option-content">
+							<div class="option-title">{option.data.title}</div>
+							<div class="option-subtitle">{option.data.content}</div>
+						</div>
+					{/if}
+				</button>
+			{/each}
+		</div>
+	{/if}
 </div>
+
+<EntryModal
+	isOpen={isModalOpen}
+	onClose={handleModalClose}
+	onSave={handleModalSave}
+	initialTitle={inputValue.trim()}
+/>
 
 <style>
 	.search-container {
 		width: 100%;
 		max-width: 800px;
 		margin: 0 auto;
+		position: relative;
 	}
 
 	.search-form {
@@ -132,6 +309,90 @@
 		transform: scale(0.95);
 	}
 
+	/* Popover styles */
+	.popover {
+		position: absolute;
+		top: calc(100% + var(--spacing-sm));
+		left: 0;
+		right: 0;
+		background: var(--color-surface);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-xl);
+		box-shadow: var(--shadow-lg);
+		overflow: hidden;
+		z-index: var(--z-dropdown);
+		max-height: 400px;
+		overflow-y: auto;
+	}
+
+	.popover-option {
+		width: 100%;
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-md);
+		padding: var(--spacing-md) var(--spacing-lg);
+		border: none;
+		background: transparent;
+		color: var(--color-text);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+		text-align: left;
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	.popover-option:last-child {
+		border-bottom: none;
+	}
+
+	.popover-option:hover,
+	.popover-option.selected {
+		background: var(--color-surface-hover);
+	}
+
+	.popover-option.selected {
+		border-left: 3px solid var(--color-primary);
+	}
+
+	.option-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		border-radius: var(--radius-lg);
+		background: linear-gradient(135deg, var(--color-primary) 0%, #c4b5fd 100%);
+		color: var(--color-text-inverted);
+		flex-shrink: 0;
+	}
+
+	.option-icon-result {
+		background: var(--color-bg-tertiary);
+		color: var(--color-text-secondary);
+	}
+
+	.option-content {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.option-title {
+		font-size: var(--font-size-md);
+		font-weight: var(--font-weight-medium);
+		color: var(--color-text);
+		margin-bottom: var(--spacing-xs);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.option-subtitle {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
 	/* Mobile optimization */
 	@media (max-width: 768px) {
 		.search-form {
@@ -144,6 +405,19 @@
 		}
 
 		.submit-button {
+			width: 36px;
+			height: 36px;
+		}
+
+		.popover {
+			max-height: 300px;
+		}
+
+		.popover-option {
+			padding: var(--spacing-sm) var(--spacing-md);
+		}
+
+		.option-icon {
 			width: 36px;
 			height: 36px;
 		}
