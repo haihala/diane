@@ -25,13 +25,8 @@ export default defineConfig(
 			// see: https://typescript-eslint.io/troubleshooting/faqs/eslint/#i-get-errors-from-the-no-undef-rule-about-global-variables-not-being-defined-even-though-there-are-no-typescript-errors
 			'no-undef': 'off',
 
-			// Type Safety - Never use any or unknown
+			// Type Safety - Never use any or unknown (basic rules that don't need type info)
 			'@typescript-eslint/no-explicit-any': 'error',
-			'@typescript-eslint/no-unsafe-assignment': 'error',
-			'@typescript-eslint/no-unsafe-member-access': 'error',
-			'@typescript-eslint/no-unsafe-call': 'error',
-			'@typescript-eslint/no-unsafe-return': 'error',
-			'@typescript-eslint/no-unsafe-argument': 'error',
 
 			// Code Quality
 			'@typescript-eslint/explicit-function-return-type': [
@@ -56,15 +51,6 @@ export default defineConfig(
 			],
 			'@typescript-eslint/no-import-type-side-effects': 'error',
 
-			// Prevent common mistakes
-			'@typescript-eslint/no-floating-promises': 'error',
-			'@typescript-eslint/await-thenable': 'error',
-			'@typescript-eslint/no-misused-promises': 'error',
-			'@typescript-eslint/require-await': 'error',
-			'@typescript-eslint/no-unnecessary-type-assertion': 'error',
-			'@typescript-eslint/prefer-nullish-coalescing': 'error',
-			'@typescript-eslint/prefer-optional-chain': 'error',
-
 			// Best practices
 			'no-console': ['warn', { allow: ['warn', 'error'] }],
 			'no-debugger': 'error',
@@ -77,8 +63,30 @@ export default defineConfig(
 		}
 	},
 	{
-		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
-
+		files: ['**/*.ts', '**/*.svelte.ts'],
+		languageOptions: {
+			parserOptions: {
+				projectService: true
+			}
+		},
+		rules: {
+			// Type-aware rules that require TypeScript project info
+			'@typescript-eslint/no-unsafe-assignment': 'error',
+			'@typescript-eslint/no-unsafe-member-access': 'error',
+			'@typescript-eslint/no-unsafe-call': 'error',
+			'@typescript-eslint/no-unsafe-return': 'error',
+			'@typescript-eslint/no-unsafe-argument': 'error',
+			'@typescript-eslint/no-floating-promises': 'error',
+			'@typescript-eslint/await-thenable': 'error',
+			'@typescript-eslint/no-misused-promises': 'error',
+			'@typescript-eslint/require-await': 'error',
+			'@typescript-eslint/no-unnecessary-type-assertion': 'error',
+			'@typescript-eslint/prefer-nullish-coalescing': 'error',
+			'@typescript-eslint/prefer-optional-chain': 'error'
+		}
+	},
+	{
+		files: ['**/*.svelte'],
 		languageOptions: {
 			parserOptions: {
 				projectService: true,
@@ -86,6 +94,21 @@ export default defineConfig(
 				parser: ts.parser,
 				svelteConfig
 			}
+		},
+		rules: {
+			// Type-aware rules for Svelte files
+			'@typescript-eslint/no-unsafe-assignment': 'error',
+			'@typescript-eslint/no-unsafe-member-access': 'error',
+			'@typescript-eslint/no-unsafe-call': 'error',
+			'@typescript-eslint/no-unsafe-return': 'error',
+			'@typescript-eslint/no-unsafe-argument': 'error',
+			'@typescript-eslint/no-floating-promises': 'error',
+			'@typescript-eslint/await-thenable': 'error',
+			'@typescript-eslint/no-misused-promises': 'error',
+			'@typescript-eslint/require-await': 'error',
+			'@typescript-eslint/no-unnecessary-type-assertion': 'error',
+			'@typescript-eslint/prefer-nullish-coalescing': 'error',
+			'@typescript-eslint/prefer-optional-chain': 'error'
 		}
 	}
 );

@@ -39,6 +39,7 @@ npm run validate
 ```
 
 This runs all quality checks:
+
 1. **Prettier** - Code formatting verification
 2. **ESLint** - Code quality and type safety rules
 3. **svelte-check** - Svelte component validation
@@ -101,6 +102,7 @@ This project enforces strict code quality rules:
 - ✅ Modern JavaScript/TypeScript patterns
 
 See project documentation for details:
+
 - `../agents.md` - AI agent guidelines
 - `../CONVENTIONS.md` - Coding conventions
 - `../ESLINT.md` - ESLint rules reference

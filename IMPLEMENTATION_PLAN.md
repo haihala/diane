@@ -22,8 +22,12 @@ This document outlines the development roadmap for Diane, from MVP to full featu
 
 ### 1.3 Basic UI Components
 
-- [ ] Layout component with navigation
-- [ ] Main search/input interface (AI-like text box)
+- [x] Layout component with navigation
+- [x] Main search/input interface (AI-like text box)
+- [x] Global CSS design system with dark theme
+- [x] SearchBar component with animations
+- [x] Landing page with hero section
+- [x] Quick action cards UI
 - [ ] Entry list view
 - [ ] Basic entry create/edit modal
 
