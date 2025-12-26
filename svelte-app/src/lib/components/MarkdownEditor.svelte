@@ -12,7 +12,10 @@
 		placeholder?: string;
 	}
 
-	let { value = $bindable(''), oninput, disabled = false, placeholder = '' }: Props = $props();
+	// eslint-disable-next-line prefer-const
+	let { value = $bindable(''), oninput, disabled, placeholder }: Props = $props();
+	const disabledValue = $derived(disabled ?? false);
+	const placeholderValue = $derived(placeholder ?? '');
 
 	let editorElement: HTMLDivElement | undefined = $state();
 	let editableDiv: HTMLDivElement | undefined = $state();
@@ -87,8 +90,8 @@
 	function handleKeyDown(e: KeyboardEvent): void {
 		const target = e.target as HTMLElement;
 		const selection = window.getSelection();
-		const cursorPos = selection?.anchorOffset || 0;
-		const text = target.textContent || '';
+		const cursorPos = selection?.anchorOffset ?? 0;
+		const text = target.textContent ?? '';
 
 		// Handle Tab key - insert four spaces at cursor position
 		if (e.key === 'Tab') {
@@ -223,12 +226,20 @@
 	}
 
 	// Handle clicks on rendered content to switch lines
-	function handleContentClick(e: MouseEvent): void {
-		if (disabled) return;
+	function handleContentClick(e: MouseEvent | KeyboardEvent): void {
+		if (disabledValue) return;
 
 		const contentElement = editorElement?.querySelector('.rendered-content');
 
 		if (!contentElement) return;
+
+		// For keyboard events, just focus the editable div without changing line
+		if (e instanceof KeyboardEvent) {
+			setTimeout(() => {
+				editableDiv?.focus();
+			}, 0);
+			return;
+		}
 
 		// Get click position relative to content
 		const rect = contentElement.getBoundingClientRect();
@@ -257,6 +268,7 @@
 		if (editableDiv) {
 			const currentText = getCurrentLine();
 			if (editableDiv.textContent !== currentText) {
+				// eslint-disable-next-line svelte/no-dom-manipulating
 				editableDiv.textContent = currentText;
 			}
 		}
@@ -269,7 +281,7 @@
 
 	// Initialize focus
 	$effect(() => {
-		if (editorElement && editableDiv && !disabled) {
+		if (editorElement && editableDiv && !disabledValue) {
 			if (!editorElement.contains(document.activeElement)) {
 				editableDiv.focus();
 			}
@@ -286,16 +298,17 @@
 			onclick={handleContentClick}
 			onkeydown={(e) => {
 				if (e.key === 'Enter' || e.key === ' ') {
-					handleContentClick(e as any);
+					handleContentClick(e);
 				}
 			}}
 			role="button"
 			tabindex="-1"
 		>
 			{#if getContentWithEmptyLine().trim()}
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 				{@html parseMarkdown(getContentWithEmptyLine())}
 			{:else}
-				<p class="empty-placeholder">{placeholder}</p>
+				<p class="empty-placeholder">{placeholderValue}</p>
 			{/if}
 		</div>
 
@@ -304,7 +317,7 @@
 			bind:this={editableDiv}
 			class="editable-overlay"
 			style="top: {overlayTop}px;"
-			contenteditable={!disabled}
+			contenteditable={!disabledValue}
 			oninput={handleInput}
 			onkeydown={handleKeyDown}
 			role="textbox"

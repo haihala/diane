@@ -54,10 +54,12 @@
 		showSavedMessage = false;
 
 		// Set up new debounce timer
-		debounceTimer = setTimeout(async () => {
-			if (title.trim() || content.trim()) {
-				await autoSave();
-			}
+		debounceTimer = setTimeout(() => {
+			void (async () => {
+				if (title.trim() || content.trim()) {
+					await autoSave();
+				}
+			})();
 		}, 1000);
 	}
 
