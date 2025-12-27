@@ -325,6 +325,12 @@ tests/
 - The app automatically connects to emulators when running on localhost
 - Emulator configuration is in `firebase.json`
 
+**Development Server**:
+- **Check for a running dev server before starting one** - most of the time there should already be one available
+- Use `lsof -i :5173` or `curl http://localhost:5173` to check if the dev server is running
+- Only start a new dev server with `npm run dev` if one isn't already running
+- Multiple dev servers can cause port conflicts and confusion
+
 **Functions**:
 - Keep Python functions in `functions/` directory
 - One function per file when possible
