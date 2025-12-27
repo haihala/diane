@@ -68,8 +68,6 @@
 		return options;
 	});
 
-	const showPopover = $derived(isFocused && popoverOptions.length > 0);
-
 	// Reset selection when options change
 	$effect(() => {
 		if (popoverOptions.length > 0) {
@@ -107,8 +105,6 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent): void {
-		if (!showPopover) return;
-
 		switch (e.key) {
 			case 'ArrowDown':
 				e.preventDefault();
@@ -176,7 +172,7 @@
 				onkeydown={handleKeydown}
 				aria-label="Search input"
 				aria-controls="search-popover"
-				aria-activedescendant={showPopover ? `option-${selectedIndex}` : undefined}
+				aria-activedescendant={`option-${selectedIndex}`}
 			/>
 			{#if inputValue.trim()}
 				<button type="submit" class="submit-button" aria-label="Submit search">
@@ -186,51 +182,49 @@
 		</div>
 	</form>
 
-	{#if showPopover}
-		<div
-			bind:this={popoverElement}
-			id="search-popover"
-			class="popover"
-			role="listbox"
-			aria-label="Search options"
-		>
-			{#each popoverOptions as option, index (index)}
-				<button
-					type="button"
-					id="option-{index}"
-					class="popover-option"
-					class:selected={index === selectedIndex}
-					role="option"
-					aria-selected={index === selectedIndex}
-					onclick={() => handleOptionClick(index)}
-					tabindex="-1"
-				>
-					{#if option.type === 'new'}
-						<div class="option-icon">
-							<Icon name="plus" size={20} />
-						</div>
-						<div class="option-content">
-							{#if inputValue.trim()}
-								<div class="option-title">Add New Entry: "{inputValue.trim()}"</div>
-								<div class="option-subtitle">Create a new note with this title</div>
-							{:else}
-								<div class="option-title">Add New Entry</div>
-								<div class="option-subtitle">Create a new note or document</div>
-							{/if}
-						</div>
-					{:else if option.data}
-						<div class="option-icon option-icon-result">
-							<Icon name="file" size={20} />
-						</div>
-						<div class="option-content">
-							<div class="option-title">{option.data.title}</div>
-							<div class="option-subtitle">{option.data.content}</div>
-						</div>
-					{/if}
-				</button>
-			{/each}
-		</div>
-	{/if}
+	<div
+		bind:this={popoverElement}
+		id="search-popover"
+		class="popover"
+		role="listbox"
+		aria-label="Search options"
+	>
+		{#each popoverOptions as option, index (index)}
+			<button
+				type="button"
+				id="option-{index}"
+				class="popover-option"
+				class:selected={index === selectedIndex}
+				role="option"
+				aria-selected={index === selectedIndex}
+				onclick={() => handleOptionClick(index)}
+				tabindex="-1"
+			>
+				{#if option.type === 'new'}
+					<div class="option-icon">
+						<Icon name="plus" size={20} />
+					</div>
+					<div class="option-content">
+						{#if inputValue.trim()}
+							<div class="option-title">Add New Entry: "{inputValue.trim()}"</div>
+							<div class="option-subtitle">Create a new note with this title</div>
+						{:else}
+							<div class="option-title">Add New Entry</div>
+							<div class="option-subtitle">Create a new note or document</div>
+						{/if}
+					</div>
+				{:else if option.data}
+					<div class="option-icon option-icon-result">
+						<Icon name="file" size={20} />
+					</div>
+					<div class="option-content">
+						<div class="option-title">{option.data.title}</div>
+						<div class="option-subtitle">{option.data.content}</div>
+					</div>
+				{/if}
+			</button>
+		{/each}
+	</div>
 </div>
 
 <EntryModal

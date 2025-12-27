@@ -18,6 +18,7 @@
 	let content = $state('');
 	let dialogElement: HTMLDialogElement | undefined = $state();
 	let titleInputElement: HTMLInputElement | undefined = $state();
+	let markdownEditorElement: MarkdownEditor | undefined = $state();
 	let isSaving = $state(false);
 	let error = $state<string | null>(null);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -149,6 +150,26 @@
 			handleClose();
 		}
 	}
+
+	function handleNavigateUpFromEditor(): void {
+		// Focus the title input when navigating up from the editor
+		titleInputElement?.focus();
+	}
+
+	function handleCtrlEnterFromEditor(): void {
+		// Save the entry when Ctrl+Enter is pressed in the editor
+		void handleSave();
+	}
+
+	function handleTitleKeydown(e: KeyboardEvent): void {
+		if (e.key === 'Enter' && e.ctrlKey) {
+			e.preventDefault();
+			void handleSave();
+		} else if (e.key === 'Enter') {
+			e.preventDefault();
+			markdownEditorElement?.focus();
+		}
+	}
 </script>
 
 <dialog
@@ -181,6 +202,7 @@
 					placeholder="Entry title..."
 					bind:value={title}
 					oninput={handleInput}
+					onkeydown={handleTitleKeydown}
 					disabled={isSaving}
 				/>
 			</div>
@@ -188,10 +210,13 @@
 			<div class="form-group">
 				<label for="entry-content" class="form-label">Content</label>
 				<MarkdownEditor
+					bind:this={markdownEditorElement}
 					bind:value={content}
 					oninput={handleInput}
 					placeholder="What's on your mind?"
 					disabled={isSaving}
+					onnavigateup={handleNavigateUpFromEditor}
+					onctrlenter={handleCtrlEnterFromEditor}
 				/>
 			</div>
 		</div>

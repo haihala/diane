@@ -6,10 +6,13 @@
 		oninput?: (e: Event) => void;
 		disabled?: boolean;
 		placeholder?: string;
+		onnavigateup?: () => void;
+		onctrlenter?: () => void;
 	}
 
 	// eslint-disable-next-line prefer-const
-	let { value = $bindable(''), oninput, disabled, placeholder }: Props = $props();
+	let { value = $bindable(''), oninput, disabled, placeholder, onnavigateup, onctrlenter }: Props =
+		$props();
 	const disabledValue = $derived(disabled ?? false);
 	const placeholderValue = $derived(placeholder ?? '');
 
@@ -88,6 +91,11 @@
 		cursorPosition = 0;
 	}
 
+	// Expose focus method to parent to focus the first block
+	export function focus(): void {
+		handleBlockClick(0);
+	}
+
 	// Handle blur on textarea
 	function handleBlockBlur(): void {
 		// Clean up empty blocks when leaving
@@ -112,6 +120,13 @@
 		const blocks = getBlocks();
 		const cursorPos = target.selectionStart || 0;
 		const text = target.value;
+
+		// Handle Ctrl+Enter for save
+		if (e.key === 'Enter' && e.ctrlKey) {
+			e.preventDefault();
+			onctrlenter?.();
+			return;
+		}
 
 		// Handle Tab key for indentation
 		if (e.key === 'Tab') {
@@ -243,12 +258,19 @@
 			return;
 		}
 
-		// Handle ArrowUp at start of block - move to previous block
-		if (e.key === 'ArrowUp' && cursorPos === 0 && blockIndex > 0) {
-			e.preventDefault();
-			editingBlockIndex = blockIndex - 1;
-			cursorPosition = blocks[blockIndex - 1].length;
-			return;
+		// Handle ArrowUp at start of block - move to previous block or navigate up
+		if (e.key === 'ArrowUp' && cursorPos === 0) {
+			if (blockIndex > 0) {
+				e.preventDefault();
+				editingBlockIndex = blockIndex - 1;
+				cursorPosition = blocks[blockIndex - 1].length;
+				return;
+			} else if (blockIndex === 0) {
+				// At the first block, notify parent to handle navigation
+				e.preventDefault();
+				onnavigateup?.();
+				return;
+			}
 		}
 
 		// Handle ArrowDown at end of block - move to next block
@@ -297,6 +319,7 @@
 			<div
 				class="empty-placeholder"
 				onclick={() => handleBlockClick(0)}
+				onfocus={() => handleBlockClick(0)}
 				onkeydown={(e) => {
 					if (e.key === 'Enter' || e.key === ' ') {
 						handleBlockClick(0);
@@ -328,6 +351,7 @@
 						<div
 							class="block-rendered"
 							onclick={() => handleBlockClick(i)}
+							onfocus={() => handleBlockClick(i)}
 							onkeydown={(e) => {
 								if (e.key === 'Enter' || e.key === ' ') {
 									handleBlockClick(i);
