@@ -17,6 +17,7 @@
 	let title = $state('');
 	let content = $state('');
 	let dialogElement: HTMLDialogElement | undefined = $state();
+	let titleInputElement: HTMLInputElement | undefined = $state();
 	let isSaving = $state(false);
 	let error = $state<string | null>(null);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -35,6 +36,10 @@
 					title = initialTitle;
 					content = '';
 				}
+				// Focus the title input after modal opens
+				setTimeout(() => {
+					titleInputElement?.focus();
+				}, 0);
 			} else if (!isOpen && dialogElement.open) {
 				dialogElement.close();
 			}
@@ -169,6 +174,7 @@
 			<div class="form-group">
 				<label for="entry-title" class="form-label">Title</label>
 				<input
+					bind:this={titleInputElement}
 					id="entry-title"
 					type="text"
 					class="form-input"

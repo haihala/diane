@@ -1,0 +1,572 @@
+// Token types for markdown syntax
+export type TokenType =
+	| 'text'
+	| 'bold'
+	| 'italic'
+	| 'strikethrough'
+	| 'code'
+	| 'link'
+	| 'heading'
+	| 'list-item'
+	| 'blockquote'
+	| 'code-block'
+	| 'hr';
+
+export interface Token {
+	type: TokenType;
+	raw: string; // Original markdown text
+	content: string; // Text content (without markdown syntax)
+	start: number; // Start position in source text
+	end: number; // End position in source text
+	level?: number; // For headings (1-6) or list depth
+	href?: string; // For links
+	language?: string; // For code blocks
+}
+
+export interface ParseResult {
+	tokens: Token[];
+	html: string;
+}
+
+// Tokenizer class
+export class MarkdownTokenizer {
+	private text: string;
+	private pos: number;
+	private tokens: Token[];
+
+	constructor(text: string) {
+		this.text = text;
+		this.pos = 0;
+		this.tokens = [];
+	}
+
+	// Main tokenization method
+	tokenize(): Token[] {
+		this.tokens = [];
+		this.pos = 0;
+
+		while (this.pos < this.text.length) {
+			// Try to match different token types
+			if (
+				this.matchHeading() ||
+				this.matchCodeBlock() ||
+				this.matchHorizontalRule() ||
+				this.matchBlockquote() ||
+				this.matchListItem() ||
+				this.matchInlineSyntax()
+			) {
+				continue;
+			}
+
+			// If nothing matched, consume one character as text
+			this.consumeText();
+		}
+
+		return this.tokens;
+	}
+
+	private peek(offset = 0): string {
+		return this.text[this.pos + offset] || '';
+	}
+
+	private advance(count = 1): void {
+		this.pos += count;
+	}
+
+	private isAtLineStart(): boolean {
+		return this.pos === 0 || this.text[this.pos - 1] === '\n';
+	}
+
+	private matchHeading(): boolean {
+		if (!this.isAtLineStart()) return false;
+
+		const match = this.text.slice(this.pos).match(/^(#{1,6})\s*(.*)(?:\n|$)/);
+		if (!match) return false;
+
+		const start = this.pos;
+		const level = match[1].length;
+		const content = match[2];
+
+		// If there's no content, don't create a heading token
+		// Instead, consume it as text by not creating a token but still advancing
+		if (!content.trim()) {
+			// Consume as text token
+			this.tokens.push({
+				type: 'text',
+				raw: match[0],
+				content: match[0],
+				start,
+				end: start + match[0].length
+			});
+			this.advance(match[0].length);
+			return true;
+		}
+
+		this.tokens.push({
+			type: 'heading',
+			raw: match[0],
+			content,
+			start,
+			end: start + match[0].length,
+			level
+		});
+
+		this.advance(match[0].length);
+		return true;
+	}
+
+	private matchCodeBlock(): boolean {
+		if (!this.isAtLineStart()) return false;
+
+		const match = this.text.slice(this.pos).match(/^```(\w*)\n([\s\S]*?)\n```(?:\n|$)/);
+		if (!match) return false;
+
+		const start = this.pos;
+		const language = match[1] || '';
+		const content = match[2];
+
+		this.tokens.push({
+			type: 'code-block',
+			raw: match[0],
+			content,
+			start,
+			end: start + match[0].length,
+			language
+		});
+
+		this.advance(match[0].length);
+		return true;
+	}
+
+	private matchHorizontalRule(): boolean {
+		if (!this.isAtLineStart()) return false;
+
+		const match = this.text.slice(this.pos).match(/^(?:---+|___+|\*\*\*+)(?:\n|$)/);
+		if (!match) return false;
+
+		const start = this.pos;
+
+		this.tokens.push({
+			type: 'hr',
+			raw: match[0],
+			content: '',
+			start,
+			end: start + match[0].length
+		});
+
+		this.advance(match[0].length);
+		return true;
+	}
+
+	private matchBlockquote(): boolean {
+		if (!this.isAtLineStart()) return false;
+
+		const match = this.text.slice(this.pos).match(/^>\s+(.+?)(?:\n|$)/);
+		if (!match) return false;
+
+		const start = this.pos;
+		const content = match[1];
+
+		this.tokens.push({
+			type: 'blockquote',
+			raw: match[0],
+			content,
+			start,
+			end: start + match[0].length
+		});
+
+		this.advance(match[0].length);
+		return true;
+	}
+
+	private matchListItem(): boolean {
+		if (!this.isAtLineStart()) return false;
+
+		const match = this.text.slice(this.pos).match(/^(\s*)(?:[-*+]|\d+\.)\s+(.*?)(?:\n|$)/);
+		if (!match) return false;
+
+		const start = this.pos;
+		const indent = match[1];
+		const content = match[2];
+		const level = Math.floor(indent.length / 2); // 2 spaces = 1 level, 4 spaces = 2 levels
+
+		this.tokens.push({
+			type: 'list-item',
+			raw: match[0],
+			content,
+			start,
+			end: start + match[0].length,
+			level
+		});
+
+		this.advance(match[0].length);
+		return true;
+	}
+
+	private matchInlineSyntax(): boolean {
+		const start = this.pos;
+
+		// Bold: **text** or __text__
+		if (this.peek() === '*' && this.peek(1) === '*') {
+			const match = this.text.slice(this.pos).match(/^\*\*(.+?)\*\*/);
+			if (match) {
+				this.tokens.push({
+					type: 'bold',
+					raw: match[0],
+					content: match[1],
+					start,
+					end: start + match[0].length
+				});
+				this.advance(match[0].length);
+				return true;
+			}
+		}
+
+		if (this.peek() === '_' && this.peek(1) === '_') {
+			const match = this.text.slice(this.pos).match(/^__(.+?)__/);
+			if (match) {
+				this.tokens.push({
+					type: 'bold',
+					raw: match[0],
+					content: match[1],
+					start,
+					end: start + match[0].length
+				});
+				this.advance(match[0].length);
+				return true;
+			}
+		}
+
+		// Italic: *text* or _text_
+		if (this.peek() === '*' && this.peek(1) !== '*') {
+			const match = this.text.slice(this.pos).match(/^\*(.+?)\*/);
+			if (match) {
+				this.tokens.push({
+					type: 'italic',
+					raw: match[0],
+					content: match[1],
+					start,
+					end: start + match[0].length
+				});
+				this.advance(match[0].length);
+				return true;
+			}
+		}
+
+		if (this.peek() === '_' && this.peek(1) !== '_') {
+			const match = this.text.slice(this.pos).match(/^_(.+?)_/);
+			if (match) {
+				this.tokens.push({
+					type: 'italic',
+					raw: match[0],
+					content: match[1],
+					start,
+					end: start + match[0].length
+				});
+				this.advance(match[0].length);
+				return true;
+			}
+		}
+
+		// Strikethrough: ~~text~~
+		if (this.peek() === '~' && this.peek(1) === '~') {
+			const match = this.text.slice(this.pos).match(/^~~(.+?)~~/);
+			if (match) {
+				this.tokens.push({
+					type: 'strikethrough',
+					raw: match[0],
+					content: match[1],
+					start,
+					end: start + match[0].length
+				});
+				this.advance(match[0].length);
+				return true;
+			}
+		}
+
+		// Inline code: `text`
+		if (this.peek() === '`' && this.peek(1) !== '`') {
+			const match = this.text.slice(this.pos).match(/^`(.+?)`/);
+			if (match) {
+				this.tokens.push({
+					type: 'code',
+					raw: match[0],
+					content: match[1],
+					start,
+					end: start + match[0].length
+				});
+				this.advance(match[0].length);
+				return true;
+			}
+		}
+
+		// Links: [text](url)
+		if (this.peek() === '[') {
+			const match = this.text.slice(this.pos).match(/^\[(.+?)\]\((.+?)\)/);
+			if (match) {
+				this.tokens.push({
+					type: 'link',
+					raw: match[0],
+					content: match[1],
+					start,
+					end: start + match[0].length,
+					href: match[2]
+				});
+				this.advance(match[0].length);
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private consumeText(): void {
+		const start = this.pos;
+		let content = '';
+
+		// Consume characters until we hit special syntax or end of text
+		while (this.pos < this.text.length) {
+			const char = this.peek();
+
+			// Check if we're at the start of special syntax at line start
+			if (this.isAtLineStart()) {
+				// Look ahead to see if this is actually block syntax
+				// For headings, check if there's content after # (with or without space)
+				if (char === '#' && /^#{1,6}\s*.+/.test(this.text.slice(this.pos))) {
+					break;
+				}
+				if (char === '>' && /^>\s+/.test(this.text.slice(this.pos))) {
+					break;
+				}
+				if (
+					(char === '-' || char === '*' || char === '+') &&
+					/^[-*+]\s+/.test(this.text.slice(this.pos))
+				) {
+					break;
+				}
+				if (/\d/.test(char) && /^\d+\.\s+/.test(this.text.slice(this.pos))) {
+					break;
+				}
+				if (char === '`' && this.text.slice(this.pos).startsWith('```')) {
+					break;
+				}
+			}
+
+			// Check for inline syntax - only break if it can form a complete token
+			// Otherwise just consume it as text
+			let shouldBreak = false;
+
+			// Don't check for inline syntax if we're at line start with a potential block element
+			// This prevents # or * at line start from being mistaken for inline syntax
+			const atLineStartWithBlockChar =
+				this.isAtLineStart() &&
+				(char === '#' ||
+					char === '>' ||
+					char === '-' ||
+					char === '*' ||
+					char === '+' ||
+					/\d/.test(char));
+
+			if (!atLineStartWithBlockChar) {
+				if (char === '*' && this.peek(1) === '*') {
+					// Check if there's a closing **
+					if (/^\*\*(.+?)\*\*/.test(this.text.slice(this.pos))) {
+						shouldBreak = true;
+					}
+				} else if (char === '*' && this.peek(1) !== '*') {
+					// Check if there's a closing *
+					if (/^\*(.+?)\*/.test(this.text.slice(this.pos))) {
+						shouldBreak = true;
+					}
+				}
+
+				if (char === '_' && this.peek(1) === '_') {
+					if (/^__(.+?)__/.test(this.text.slice(this.pos))) {
+						shouldBreak = true;
+					}
+				} else if (char === '_' && this.peek(1) !== '_') {
+					if (/^_(.+?)_/.test(this.text.slice(this.pos))) {
+						shouldBreak = true;
+					}
+				}
+
+				if (char === '~' && this.peek(1) === '~' && /^~~(.+?)~~/.test(this.text.slice(this.pos))) {
+					shouldBreak = true;
+				}
+
+				if (char === '`' && this.peek(1) !== '`' && /^`(.+?)`/.test(this.text.slice(this.pos))) {
+					shouldBreak = true;
+				}
+
+				if (char === '[' && /^\[(.+?)\]\((.+?)\)/.test(this.text.slice(this.pos))) {
+					shouldBreak = true;
+				}
+			}
+
+			if (shouldBreak) {
+				break;
+			}
+
+			content += char;
+			this.advance();
+
+			// Break at newlines for block-level elements
+			if (char === '\n') {
+				break;
+			}
+		}
+
+		if (content) {
+			this.tokens.push({
+				type: 'text',
+				raw: content,
+				content,
+				start,
+				end: this.pos
+			});
+		}
+	}
+}
+
+// Parser class that converts tokens to HTML
+export class MarkdownParser {
+	private tokens: Token[];
+	private cursorPos: number;
+
+	constructor(tokens: Token[], cursorPos: number) {
+		this.tokens = tokens;
+		this.cursorPos = cursorPos;
+	}
+
+	// Render tokens to HTML, keeping cursor token as plain text
+	render(): string {
+		let html = '';
+		let inParagraph = false;
+
+		for (let i = 0; i < this.tokens.length; i++) {
+			const token = this.tokens[i];
+
+			// For block-level elements, exclude trailing newline from cursor detection
+			// This way, if cursor is on the next line, the block element is fully rendered
+			const isBlockLevel = ['heading', 'code-block', 'hr', 'blockquote', 'list-item'].includes(
+				token.type
+			);
+
+			let effectiveEnd = token.end;
+			if (isBlockLevel && token.raw.endsWith('\n')) {
+				// Exclude the trailing newline from cursor detection
+				effectiveEnd = token.end - 1;
+			}
+
+			const isCursorToken = this.cursorPos >= token.start && this.cursorPos <= effectiveEnd;
+
+			if (isBlockLevel && inParagraph) {
+				html += '</p>';
+				inParagraph = false;
+			}
+
+			// Handle paragraph wrapping for text
+			if (token.type === 'text' && !inParagraph && !token.raw.trim().startsWith('\n')) {
+				html += '<p>';
+				inParagraph = true;
+			}
+
+			// Close paragraph on newline in text
+			if (inParagraph && token.type === 'text' && token.raw.includes('\n')) {
+				// Split on newline
+				const beforeNewline = token.raw.substring(0, token.raw.indexOf('\n'));
+				const afterNewline = token.raw.substring(token.raw.indexOf('\n'));
+
+				if (isCursorToken) {
+					html += this.escapeHtml(token.raw);
+				} else {
+					html += this.escapeHtml(beforeNewline);
+				}
+				html += '</p>';
+				inParagraph = false;
+
+				if (afterNewline.trim() && !isCursorToken) {
+					html += '<p>';
+					html += this.escapeHtml(afterNewline);
+					inParagraph = true;
+				}
+				continue;
+			}
+
+			// Render based on whether cursor is on this token
+			if (isCursorToken) {
+				html += this.escapeHtml(token.raw);
+			} else {
+				html += this.renderToken(token);
+			}
+		}
+
+		if (inParagraph) {
+			html += '</p>';
+		}
+
+		return html;
+	}
+
+	private renderToken(token: Token): string {
+		switch (token.type) {
+			case 'heading':
+				return `<h${token.level}>${this.escapeHtml(token.content)}</h${token.level}>`;
+
+			case 'bold':
+				return `<strong>${this.escapeHtml(token.content)}</strong>`;
+
+			case 'italic':
+				return `<em>${this.escapeHtml(token.content)}</em>`;
+
+			case 'strikethrough':
+				return `<del>${this.escapeHtml(token.content)}</del>`;
+
+			case 'code':
+				return `<code>${this.escapeHtml(token.content)}</code>`;
+
+			case 'code-block':
+				return `<pre><code class="language-${token.language}">${this.escapeHtml(token.content)}</code></pre>`;
+
+			case 'link':
+				return `<a href="${this.escapeHtml(token.href ?? '')}">${this.escapeHtml(token.content)}</a>`;
+
+			case 'list-item': {
+				const indent = token.level ?? 0;
+				const marginLeft = indent * 20; // 20px per level
+				return `<li style="margin-left: ${marginLeft}px">${this.escapeHtml(token.content)}</li>`;
+			}
+
+			case 'blockquote':
+				return `<blockquote><p>${this.escapeHtml(token.content)}</p></blockquote>`;
+
+			case 'hr':
+				return '<hr>';
+
+			case 'text':
+				return this.escapeHtml(token.content);
+
+			default:
+				return this.escapeHtml(token.raw);
+		}
+	}
+
+	private escapeHtml(text: string): string {
+		return text
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#039;');
+	}
+}
+
+// Main export function
+export function parseMarkdown(text: string, cursorPos: number): ParseResult {
+	const tokenizer = new MarkdownTokenizer(text);
+	const tokens = tokenizer.tokenize();
+	const parser = new MarkdownParser(tokens, cursorPos);
+	const html = parser.render();
+
+	return { tokens, html };
+}
