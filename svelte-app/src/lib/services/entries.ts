@@ -33,6 +33,10 @@ export async function createEntry(input: CreateEntryInput): Promise<Entry> {
 		throw new Error('User must be authenticated to create entries');
 	}
 
+	if (!input.title.trim()) {
+		throw new Error('Entry title cannot be empty');
+	}
+
 	const now = new Date();
 
 	const docRef = await addDoc(collection(db, ENTRIES_COLLECTION), {
@@ -105,6 +109,10 @@ export async function updateEntry(id: string, input: CreateEntryInput): Promise<
 	const currentUser = auth.currentUser;
 	if (!currentUser) {
 		throw new Error('User must be authenticated to update entries');
+	}
+
+	if (!input.title.trim()) {
+		throw new Error('Entry title cannot be empty');
 	}
 
 	const entryRef = doc(db, ENTRIES_COLLECTION, id);
