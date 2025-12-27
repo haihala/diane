@@ -2,18 +2,6 @@
 	import SearchBar from '$lib/components/SearchBar.svelte';
 	import { signOut, user } from '$lib/services/auth';
 
-	function handleSearch(value: string): void {
-		// Search functionality is now handled internally by SearchBar
-		// eslint-disable-next-line no-console
-		console.log('Search:', value);
-	}
-
-	function handleNewEntry(): void {
-		// Entry was successfully saved to Firestore
-		// eslint-disable-next-line no-console
-		console.log('New entry saved');
-	}
-
 	async function handleSignOut(): Promise<void> {
 		try {
 			await signOut();
@@ -46,9 +34,9 @@
 				</p>
 			</div>
 
-			<div class="search-section">
-				<SearchBar onSubmit={handleSearch} onNewEntry={handleNewEntry} autoFocus />
-			</div>
+		<div class="search-section">
+			<SearchBar autoFocus />
+		</div>
 		</main>
 	</div>
 </div>
