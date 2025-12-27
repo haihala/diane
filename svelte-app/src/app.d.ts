@@ -8,16 +8,14 @@ declare global {
 		// interface PageState {}
 		// interface Platform {}
 	}
+}
 
-	interface ImportMetaEnv {
-		readonly PUBLIC_FIREBASE_API_KEY?: string;
-		readonly PUBLIC_FIREBASE_AUTH_DOMAIN?: string;
-		readonly PUBLIC_FIREBASE_PROJECT_ID?: string;
-	}
-
-	interface ImportMeta {
-		readonly env: ImportMetaEnv;
-	}
+// Augment SvelteKit's $env/static/public module types
+// These variables are replaced at build time by SvelteKit
+declare module '$env/static/public' {
+	export const PUBLIC_FIREBASE_API_KEY: string | undefined;
+	export const PUBLIC_FIREBASE_AUTH_DOMAIN: string | undefined;
+	export const PUBLIC_FIREBASE_PROJECT_ID: string | undefined;
 }
 
 export {};

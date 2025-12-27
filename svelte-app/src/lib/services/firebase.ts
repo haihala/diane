@@ -2,13 +2,18 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, connectAuthEmulator, GoogleAuthProvider } from 'firebase/auth';
 import { browser, dev } from '$app/environment';
+import {
+	PUBLIC_FIREBASE_API_KEY,
+	PUBLIC_FIREBASE_AUTH_DOMAIN,
+	PUBLIC_FIREBASE_PROJECT_ID
+} from '$env/static/public';
 
 // Firebase configuration
 // Environment variables are replaced at build time by Vite
 const firebaseConfig = {
-	apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY ?? 'demo-api-key',
-	authDomain: import.meta.env.PUBLIC_FIREBASE_AUTH_DOMAIN ?? 'diane-prod.firebaseapp.com',
-	projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID ?? 'diane-prod'
+	apiKey: PUBLIC_FIREBASE_API_KEY ?? 'demo-api-key',
+	authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN ?? 'diane-prod.firebaseapp.com',
+	projectId: PUBLIC_FIREBASE_PROJECT_ID ?? 'diane-prod'
 };
 
 // Initialize Firebase
