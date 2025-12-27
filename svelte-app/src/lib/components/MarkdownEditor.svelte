@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { parseMarkdown } from '$lib/services/markdown';
+	import { extractEntryIdsFromContent, loadEntryTitles } from '$lib/services/entries';
+	import LinkSelectorPopover from './LinkSelectorPopover.svelte';
+	import type { Entry } from '$lib/types/Entry';
 
 	interface Props {
 		value?: string;
@@ -8,11 +11,12 @@
 		placeholder?: string;
 		onnavigateup?: () => void;
 		onctrlenter?: () => void;
+		currentEntryId?: string; // ID of the current entry (to exclude from link options)
 	}
 
 	// eslint-disable-next-line prefer-const
-	let { value = $bindable(''), oninput, disabled, placeholder, onnavigateup, onctrlenter }: Props =
-		$props();
+	let { value = $bindable(''), ...props }: Props = $props();
+	const { oninput, disabled, placeholder, onnavigateup, onctrlenter, currentEntryId } = props;
 	const disabledValue = $derived(disabled ?? false);
 	const placeholderValue = $derived(placeholder ?? '');
 
@@ -20,6 +24,35 @@
 	let editingBlockIndex: number | null = $state(null);
 	let cursorPosition: number = $state(0);
 	const textareaElements: { [key: number]: HTMLTextAreaElement } = {};
+	// Wiki link popover state
+	let showLinkPopover = $state(false);
+	let linkPopoverPosition = $state({ x: 0, y: 0 });
+	let linkSearchTerm = $state('');
+	let linkStartPos = $state(0);
+	let linkSelectorRef: { handleExternalKeydown: (e: KeyboardEvent) => void } | undefined = $state();
+
+	// Store for loaded entry titles
+	let entryTitles = $state<Map<string, string>>(new Map());
+
+	// Load entry titles when content changes
+	$effect(() => {
+		// Extract entry IDs from the current content
+		const entryIds = extractEntryIdsFromContent(value);
+
+		if (entryIds.length > 0) {
+			// Load titles asynchronously with error handling
+			void loadEntryTitles(entryIds)
+				.then((titleMap) => {
+					entryTitles = titleMap;
+				})
+				.catch((err) => {
+					console.error('Failed to load entry titles:', err);
+					// Keep existing titles on error
+				});
+		} else {
+			entryTitles = new Map();
+		}
+	});
 
 	// Split content into blocks (paragraphs separated by double newlines)
 	function getBlocks(): string[] {
@@ -29,18 +62,27 @@
 		return blocks.length === 0 ? [''] : blocks;
 	}
 
+	// Create rendered blocks as a derived value that depends on content and loaded titles
+	// This ensures blocks re-render when content changes or titles are loaded
+	const renderedBlocks = $derived(
+		getBlocks().map((block) => {
+			// This will automatically track entryTitles dependency
+			return getRenderedBlockInternal(block);
+		})
+	);
+
 	// Reconstruct value from blocks
 	function setBlocks(blocks: string[]): void {
 		value = blocks.join('\n\n');
 	}
 
-	// Get rendered HTML for a block
-	function getRenderedBlock(blockContent: string): string {
+	// Get rendered HTML for a block (internal helper)
+	function getRenderedBlockInternal(blockContent: string): string {
 		if (!blockContent.trim()) {
 			return '<p class="empty-block">&nbsp;</p>';
 		}
 		try {
-			const result = parseMarkdown(blockContent, -1); // -1 means no cursor
+			const result = parseMarkdown(blockContent, -1, entryTitles); // -1 means no cursor, pass title map
 			return result.html || '<p>&nbsp;</p>';
 		} catch (err) {
 			console.error('Failed to parse markdown:', err);
@@ -77,6 +119,9 @@
 		// Save cursor position
 		cursorPosition = target.selectionStart || 0;
 
+		// Check for [[ trigger to show link selector
+		checkForLinkTrigger(target);
+
 		// Auto-resize textarea
 		autoResizeTextarea(target);
 
@@ -85,10 +130,99 @@
 	}
 
 	// Handle clicking on a rendered block to edit it
-	function handleBlockClick(blockIndex: number): void {
+	function handleBlockClick(blockIndex: number, event?: MouseEvent): void {
 		if (disabledValue) return;
+
+		// If clicking on a link, don't enter edit mode
+		if (event?.target && (event.target as HTMLElement).tagName === 'A') {
+			return;
+		}
+
 		editingBlockIndex = blockIndex;
 		cursorPosition = 0;
+	}
+
+	// Check if [[ was just typed to trigger link selector
+	function checkForLinkTrigger(textarea: HTMLTextAreaElement): void {
+		const text = textarea.value;
+		const cursorPos = textarea.selectionStart || 0;
+
+		// Look backwards from cursor to find [[
+		const textBeforeCursor = text.substring(0, cursorPos);
+		const lastDoubleBracket = textBeforeCursor.lastIndexOf('[[');
+
+		// Check if we have [[ without closing ]]
+		if (lastDoubleBracket !== -1) {
+			const textAfterBracket = textBeforeCursor.substring(lastDoubleBracket);
+			const hasClosing = textAfterBracket.includes(']]');
+
+			if (!hasClosing) {
+				// Extract search term (text after [[)
+				linkSearchTerm = textAfterBracket.substring(2);
+				linkStartPos = lastDoubleBracket;
+
+				// Calculate popover position
+				const rect = textarea.getBoundingClientRect();
+				linkPopoverPosition = {
+					x: rect.left,
+					y: rect.bottom + 5
+				};
+
+				showLinkPopover = true;
+				return;
+			}
+		}
+
+		// Hide popover if no valid [[ trigger found
+		showLinkPopover = false;
+	}
+
+	// Handle link selection from popover
+	function handleLinkSelect(entry: Entry): void {
+		if (editingBlockIndex === null) return;
+
+		const blocks = getBlocks();
+		const currentBlock = blocks[editingBlockIndex];
+		const textarea = textareaElements[editingBlockIndex];
+
+		if (!textarea) return;
+
+		// Replace [[ and search term with wiki link (store only ID, no display name)
+		const beforeLink = currentBlock.substring(0, linkStartPos);
+		const cursorPos = textarea.selectionStart || 0;
+		let afterCursor = currentBlock.substring(cursorPos);
+
+		// Check if ]] already exists right after cursor and skip it if present
+		if (afterCursor.startsWith(']]')) {
+			afterCursor = afterCursor.substring(2);
+		}
+
+		const wikiLink = `[[${entry.id}]]`;
+
+		const newBlock = beforeLink + wikiLink + afterCursor;
+		blocks[editingBlockIndex] = newBlock;
+		setBlocks(blocks);
+
+		// Move cursor after the inserted link
+		cursorPosition = linkStartPos + wikiLink.length;
+
+		// Update textarea
+		setTimeout(() => {
+			if (textarea && editingBlockIndex !== null) {
+				textarea.value = blocks[editingBlockIndex];
+				textarea.focus();
+				textarea.selectionStart = textarea.selectionEnd = cursorPosition;
+				autoResizeTextarea(textarea);
+			}
+		}, 0);
+
+		showLinkPopover = false;
+		oninput?.(new Event('input'));
+	}
+
+	// Close link popover
+	function handleLinkPopoverClose(): void {
+		showLinkPopover = false;
 	}
 
 	// Expose focus method to parent to focus the first block
@@ -111,6 +245,9 @@
 			setBlocks(cleanedBlocks);
 		}
 
+		// Close link popover if open
+		showLinkPopover = false;
+
 		editingBlockIndex = null;
 	}
 
@@ -120,6 +257,22 @@
 		const blocks = getBlocks();
 		const cursorPos = target.selectionStart || 0;
 		const text = target.value;
+
+		// If link popover is open, let it handle arrow keys and Enter
+		if (showLinkPopover && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter')) {
+			e.preventDefault();
+			if (linkSelectorRef?.handleExternalKeydown) {
+				linkSelectorRef.handleExternalKeydown(e);
+			}
+			return;
+		}
+
+		// Handle Escape to close link popover
+		if (e.key === 'Escape' && showLinkPopover) {
+			e.preventDefault();
+			showLinkPopover = false;
+			return;
+		}
 
 		// Handle Ctrl+Enter for save
 		if (e.key === 'Enter' && e.ctrlKey) {
@@ -350,7 +503,7 @@
 						<!-- View mode: show rendered HTML -->
 						<div
 							class="block-rendered"
-							onclick={() => handleBlockClick(i)}
+							onclick={(e) => handleBlockClick(i, e)}
 							onfocus={() => handleBlockClick(i)}
 							onkeydown={(e) => {
 								if (e.key === 'Enter' || e.key === ' ') {
@@ -361,7 +514,7 @@
 							tabindex="0"
 						>
 							<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-							{@html getRenderedBlock(block)}
+							{@html renderedBlocks[i] || ''}
 						</div>
 					{/if}
 				</div>
@@ -369,6 +522,17 @@
 		{/if}
 	</div>
 </div>
+
+{#if showLinkPopover}
+	<LinkSelectorPopover
+		bind:this={linkSelectorRef}
+		searchTerm={linkSearchTerm}
+		position={linkPopoverPosition}
+		onSelect={handleLinkSelect}
+		onClose={handleLinkPopoverClose}
+		{currentEntryId}
+	/>
+{/if}
 
 <style>
 	.markdown-editor {
@@ -538,6 +702,28 @@
 
 	.block-rendered :global(a:hover) {
 		text-decoration: underline;
+	}
+
+	.block-rendered :global(a.wiki-link) {
+		color: var(--color-primary);
+		text-decoration: none;
+		background: rgba(139, 92, 246, 0.1);
+		padding: 2px 6px;
+		border-radius: var(--radius-sm);
+		transition: all var(--transition-fast);
+	}
+
+	.block-rendered :global(a.wiki-link:hover) {
+		background: rgba(139, 92, 246, 0.2);
+		text-decoration: none;
+	}
+
+	.block-rendered :global(.wiki-link-invalid) {
+		color: var(--color-danger, #ef4444);
+		background: rgba(239, 68, 68, 0.1);
+		padding: 2px 6px;
+		border-radius: var(--radius-sm);
+		font-weight: var(--font-weight-medium);
 	}
 
 	.block-rendered :global(img) {

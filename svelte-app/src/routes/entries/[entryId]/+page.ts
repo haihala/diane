@@ -1,9 +1,13 @@
 import { getEntryById } from '$lib/services/entries';
+import { waitForAuth } from '$lib/services/auth';
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ params }) => {
 	const { entryId } = params;
+
+	// Wait for auth to be initialized before loading the entry
+	await waitForAuth();
 
 	try {
 		const entry = await getEntryById(entryId);

@@ -1,28 +1,53 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { goto, beforeNavigate, invalidate } from '$app/navigation';
+	import { resolveRoute } from '$app/paths';
 	import SearchBar from '$lib/components/SearchBar.svelte';
 	import EntryModal from '$lib/components/EntryModal.svelte';
 	import { signOut, user } from '$lib/services/auth';
 	import type { PageData } from './$types';
 
+	// eslint-disable-next-line prefer-const
 	let { data }: { data: PageData } = $props();
 
 	let isModalOpen = $state(false);
+	let entryModalRef: { saveIfNeeded: () => Promise<void> } | undefined = $state();
 
-	onMount(() => {
-		// Open the modal when the page loads
-		isModalOpen = true;
+	// Reopen modal when data changes (when navigating to a different entry)
+	$effect(() => {
+		if (data.entry) {
+			isModalOpen = true;
+		}
+	});
+
+	// Save entry before navigating away
+	beforeNavigate((_navigation) => {
+		// Only intercept navigation to other entries or home
+		if (data.entry && entryModalRef) {
+			void (async () => {
+				try {
+					// Get current values from the modal via a public method
+					if (entryModalRef) {
+						await entryModalRef.saveIfNeeded();
+					}
+				} catch (error) {
+					console.error('Failed to save entry before navigation:', error);
+					// Continue with navigation even if save fails
+				}
+			})();
+		}
 	});
 
 	function handleModalClose(): void {
 		isModalOpen = false;
 		// Navigate back to home when modal closes
-		void goto('/');
+		const path = resolveRoute('/');
+		// eslint-disable-next-line svelte/no-navigation-without-resolve
+		void goto(path);
 	}
 
-	function handleModalSave(): void {
-		// Stay on the page after saving
+	async function handleModalSave(): Promise<void> {
+		// Reload the current entry to pick up any backlink updates
+		await invalidate((url) => url.pathname.startsWith('/entries/'));
 	}
 
 	async function handleSignOut(): Promise<void> {
@@ -67,6 +92,7 @@
 
 <!-- Show the modal with the entry data -->
 <EntryModal
+	bind:this={entryModalRef}
 	isOpen={isModalOpen}
 	onClose={handleModalClose}
 	onSave={handleModalSave}

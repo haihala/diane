@@ -1,9 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
+	import { resolveRoute } from '$app/paths';
 	import EntryModal from './EntryModal.svelte';
 	import Icon from './Icon.svelte';
-	import { searchEntries } from '$lib/services/entries';
+	import {
+		searchEntries,
+		extractEntryIdsFromContent,
+		loadEntryTitles
+	} from '$lib/services/entries';
+	import { parseMarkdown } from '$lib/services/markdown';
 	import type { Entry } from '$lib/types/Entry';
 
 	interface Props {
@@ -21,6 +28,7 @@
 	let inputElement: HTMLInputElement | undefined = $state();
 	let popoverElement: HTMLDivElement | undefined = $state();
 	let searchResults = $state<Entry[]>([]);
+	let entryTitles = $state<Map<string, string>>(new Map());
 
 	// Auto-focus on mount if requested
 	onMount(() => {
@@ -33,9 +41,11 @@
 	$effect(() => {
 		const searchTerm = inputValue.trim();
 		if (searchTerm) {
-			searchEntries(searchTerm)
+			void searchEntries(searchTerm)
 				.then((results) => {
 					searchResults = results;
+					// Load titles for all entry IDs found in search results
+					void loadTitlesForResults(results);
 				})
 				.catch((err) => {
 					console.error('Search failed:', err);
@@ -43,8 +53,30 @@
 				});
 		} else {
 			searchResults = [];
+			entryTitles = new Map();
 		}
 	});
+
+	async function loadTitlesForResults(results: Entry[]): Promise<void> {
+		try {
+			// Extract all entry IDs from all results' content
+			const allEntryIds = new SvelteSet<string>();
+			for (const result of results) {
+				const ids = extractEntryIdsFromContent(result.content);
+				ids.forEach((id) => allEntryIds.add(id));
+			}
+
+			if (allEntryIds.size > 0) {
+				const titleMap = await loadEntryTitles([...allEntryIds]);
+				entryTitles = titleMap;
+			} else {
+				entryTitles = new Map();
+			}
+		} catch (err) {
+			console.error('Failed to load entry titles:', err);
+			// Keep existing titles on error
+		}
+	}
 
 	// Create dynamic placeholder with current time
 	const dynamicPlaceholder = $derived.by(() => {
@@ -135,7 +167,9 @@
 			isFocused = false;
 		} else if (option.type === 'result' && option.data) {
 			// Navigate to the entry page (which will open the modal)
-			void goto(`/entries/${option.data.id}`);
+			const path = resolveRoute('/entries/[entryId]', { entryId: option.data.id });
+			// eslint-disable-next-line svelte/no-navigation-without-resolve
+			void goto(path);
 		}
 	}
 
@@ -151,6 +185,25 @@
 	function handleModalSave(): void {
 		onNewEntry?.();
 		inputValue = '';
+	}
+
+	// Get preview text for an entry (first 100 chars, rendering wiki links as their display names)
+	function getEntryPreview(entry: Entry): string {
+		if (!entry.content) return '';
+
+		// Simply replace double newlines with spaces to separate blocks,
+		// then parse markdown to resolve wiki links
+		const contentWithSpaces = entry.content.replace(/\n\n+/g, ' ');
+
+		// Parse to resolve wiki links
+		const parsed = parseMarkdown(contentWithSpaces, -1, entryTitles);
+
+		// Extract text content from HTML
+		const div = document.createElement('div');
+		div.innerHTML = parsed.html;
+		const textContent = div.textContent || div.innerText || '';
+
+		return textContent.trim().substring(0, 100);
 	}
 </script>
 
@@ -215,7 +268,7 @@
 					</div>
 					<div class="option-content">
 						<div class="option-title">{option.data.title}</div>
-						<div class="option-subtitle">{option.data.content}</div>
+						<div class="option-subtitle">{getEntryPreview(option.data)}</div>
 					</div>
 				{/if}
 			</button>

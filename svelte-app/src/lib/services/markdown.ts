@@ -6,6 +6,7 @@ export type TokenType =
 	| 'strikethrough'
 	| 'code'
 	| 'link'
+	| 'wiki-link'
 	| 'heading'
 	| 'list-item'
 	| 'blockquote'
@@ -20,6 +21,7 @@ export interface Token {
 	end: number; // End position in source text
 	level?: number; // For headings (1-6) or list depth
 	href?: string; // For links
+	entryId?: string; // For wiki links - the target entry ID
 	language?: string; // For code blocks
 }
 
@@ -27,6 +29,9 @@ export interface ParseResult {
 	tokens: Token[];
 	html: string;
 }
+
+// Type for resolving entry IDs to titles at runtime
+export type EntryTitleMap = Map<string, string>;
 
 // Tokenizer class
 export class MarkdownTokenizer {
@@ -206,6 +211,25 @@ export class MarkdownTokenizer {
 	private matchInlineSyntax(): boolean {
 		const start = this.pos;
 
+		// Wiki links: [[entryId|display name]] or [[entryId]]
+		if (this.peek() === '[' && this.peek(1) === '[') {
+			const match = this.text.slice(this.pos).match(/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/);
+			if (match) {
+				const entryId = match[1];
+				const displayName = match[2] || entryId;
+				this.tokens.push({
+					type: 'wiki-link',
+					raw: match[0],
+					content: displayName,
+					start,
+					end: start + match[0].length,
+					entryId
+				});
+				this.advance(match[0].length);
+				return true;
+			}
+		}
+
 		// Bold: **text** or __text__
 		if (this.peek() === '*' && this.peek(1) === '*') {
 			const match = this.text.slice(this.pos).match(/^\*\*(.+?)\*\*/);
@@ -368,7 +392,12 @@ export class MarkdownTokenizer {
 					/\d/.test(char));
 
 			if (!atLineStartWithBlockChar) {
-				if (char === '*' && this.peek(1) === '*') {
+				if (char === '[' && this.peek(1) === '[') {
+					// Check if there's a closing ]]
+					if (/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/.test(this.text.slice(this.pos))) {
+						shouldBreak = true;
+					}
+				} else if (char === '*' && this.peek(1) === '*') {
 					// Check if there's a closing **
 					if (/^\*\*(.+?)\*\*/.test(this.text.slice(this.pos))) {
 						shouldBreak = true;
@@ -432,10 +461,12 @@ export class MarkdownTokenizer {
 export class MarkdownParser {
 	private tokens: Token[];
 	private cursorPos: number;
+	private entryTitleMap?: EntryTitleMap;
 
-	constructor(tokens: Token[], cursorPos: number) {
+	constructor(tokens: Token[], cursorPos: number, entryTitleMap?: EntryTitleMap) {
 		this.tokens = tokens;
 		this.cursorPos = cursorPos;
+		this.entryTitleMap = entryTitleMap;
 	}
 
 	// Render tokens to HTML, keeping cursor token as plain text
@@ -531,6 +562,30 @@ export class MarkdownParser {
 			case 'link':
 				return `<a href="${this.escapeHtml(token.href ?? '')}">${this.escapeHtml(token.content)}</a>`;
 
+			case 'wiki-link': {
+				// Wiki links render as links to /entries/[entryId]
+				const entryId = token.entryId ?? '';
+
+				// Check if the entry exists in the title map
+				const entryExists = this.entryTitleMap ? this.entryTitleMap.has(entryId) : false;
+
+				// If entry doesn't exist, render as invalid link
+				if (!entryExists) {
+					return `<span class="wiki-link-invalid">Invalid link</span>`;
+				}
+
+				// Determine display name:
+				// If token.content differs from entryId, it means an explicit display name was provided in the syntax [[id|name]]
+				// In that case, use the explicit display name
+				// Otherwise, try to get the title from the map, falling back to entry ID
+				let displayName = token.content;
+				if (displayName === entryId && this.entryTitleMap) {
+					displayName = this.entryTitleMap.get(entryId) ?? entryId;
+				}
+
+				return `<a href="/entries/${this.escapeHtml(entryId)}" class="wiki-link">${this.escapeHtml(displayName)}</a>`;
+			}
+
 			case 'list-item': {
 				const indent = token.level ?? 0;
 				const marginLeft = indent * 20; // 20px per level
@@ -562,10 +617,14 @@ export class MarkdownParser {
 }
 
 // Main export function
-export function parseMarkdown(text: string, cursorPos: number): ParseResult {
+export function parseMarkdown(
+	text: string,
+	cursorPos: number,
+	entryTitleMap?: EntryTitleMap
+): ParseResult {
 	const tokenizer = new MarkdownTokenizer(text);
 	const tokens = tokenizer.tokenize();
-	const parser = new MarkdownParser(tokens, cursorPos);
+	const parser = new MarkdownParser(tokens, cursorPos, entryTitleMap);
 	const html = parser.render();
 
 	return { tokens, html };

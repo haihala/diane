@@ -34,9 +34,9 @@
 				</p>
 			</div>
 
-		<div class="search-section">
-			<SearchBar autoFocus />
-		</div>
+			<div class="search-section">
+				<SearchBar autoFocus />
+			</div>
 		</main>
 	</div>
 </div>

@@ -733,3 +733,84 @@ describe('parseMarkdown Integration', () => {
 		expect(result.tokens[0].type).toBe('text');
 	});
 });
+
+describe('Wiki Links', () => {
+	describe('Tokenization', () => {
+		it('should tokenize wiki link with display name', () => {
+			const tokenizer = new MarkdownTokenizer('[[entry-id-123|My Entry]]');
+			const tokens = tokenizer.tokenize();
+			expect(tokens).toHaveLength(1);
+			expect(tokens[0]).toMatchObject({
+				type: 'wiki-link',
+				content: 'My Entry',
+				entryId: 'entry-id-123',
+				raw: '[[entry-id-123|My Entry]]'
+			});
+		});
+
+		it('should tokenize wiki link without display name', () => {
+			const tokenizer = new MarkdownTokenizer('[[entry-id-123]]');
+			const tokens = tokenizer.tokenize();
+			expect(tokens).toHaveLength(1);
+			expect(tokens[0]).toMatchObject({
+				type: 'wiki-link',
+				content: 'entry-id-123',
+				entryId: 'entry-id-123',
+				raw: '[[entry-id-123]]'
+			});
+		});
+
+		it('should tokenize wiki link in mixed content', () => {
+			const tokenizer = new MarkdownTokenizer('Check out [[entry-123|this entry]] for more.');
+			const tokens = tokenizer.tokenize();
+			expect(tokens).toHaveLength(3);
+			expect(tokens[0].type).toBe('text');
+			expect(tokens[1].type).toBe('wiki-link');
+			expect(tokens[2].type).toBe('text');
+		});
+	});
+
+	describe('Rendering', () => {
+		it('should render wiki link with display name from link syntax', () => {
+			const entryMap = new Map([['entry-123', 'Entry Title From Map']]);
+			const result = parseMarkdown('[[entry-123|My Entry Title]]', -1, entryMap);
+			expect(result.html).toContain(
+				'<a href="/entries/entry-123" class="wiki-link">My Entry Title</a>'
+			);
+		});
+
+		it('should render wiki link with ID when no display name provided', () => {
+			const entryMap = new Map([['entry-123', 'Some Title']]);
+			const result = parseMarkdown('[[entry-123]]', -1, entryMap);
+			// When no explicit display name is provided, it should use the title from the map
+			expect(result.html).toContain(
+				'<a href="/entries/entry-123" class="wiki-link">Some Title</a>'
+			);
+		});
+
+		it('should render wiki link in paragraph with display name', () => {
+			const entryMap = new Map([['entry-123', 'Title From Map']]);
+			const result = parseMarkdown('Check [[entry-123|Important Note]] out.', -1, entryMap);
+			expect(result.html).toContain('<p>');
+			expect(result.html).toContain('Check ');
+			expect(result.html).toContain(
+				'<a href="/entries/entry-123" class="wiki-link">Important Note</a>'
+			);
+			expect(result.html).toContain(' out.</p>');
+		});
+
+		it('should handle cursor on wiki link', () => {
+			const entryMap = new Map([['entry-123', 'Some Title']]);
+			const result = parseMarkdown('[[entry-123]]', 5, entryMap);
+			expect(result.html).toBe('[[entry-123]]');
+		});
+
+		it('should use display name from link syntax', () => {
+			const entryMap = new Map([['entry-123', 'Title From Map']]);
+			const result = parseMarkdown('[[entry-123|Custom Title]]', -1, entryMap);
+			expect(result.html).toContain(
+				'<a href="/entries/entry-123" class="wiki-link">Custom Title</a>'
+			);
+		});
+	});
+});

@@ -48,11 +48,25 @@
 		}
 	});
 
+	// Watch for entry changes and update the modal content
+	$effect(() => {
+		if (entry && isOpen) {
+			title = entry.title;
+			content = entry.content;
+			hasUnsavedChanges = false;
+		}
+	});
+
 	function handleInput(): void {
 		// Mark that we have unsaved changes when editing an existing entry
 		if (entry) {
 			hasUnsavedChanges = true;
 		}
+	}
+
+	function handleTitleBlur(): void {
+		// Title changes are handled automatically through the content now
+		// No need to update a separate map
 	}
 
 	async function handleClose(): Promise<void> {
@@ -147,7 +161,34 @@
 			void handleSave();
 		} else if (e.key === 'Enter') {
 			e.preventDefault();
-			markdownEditorElement?.focus();
+			// Focus the markdown editor when Enter is pressed
+			if (markdownEditorElement && 'focus' in markdownEditorElement) {
+				(markdownEditorElement as { focus: () => void }).focus();
+			}
+		}
+	}
+
+	// Public method to save if there are unsaved changes
+	// This is called by the parent component before navigating away
+	export async function saveIfNeeded(): Promise<void> {
+		if (entry && hasUnsavedChanges && title.trim()) {
+			isSaving = true;
+			error = null;
+
+			try {
+				await updateEntry(entry.id, {
+					title: title.trim(),
+					content: content.trim()
+				});
+				hasUnsavedChanges = false;
+				onSave?.();
+			} catch (err) {
+				console.error('Failed to save entry:', err);
+				error = err instanceof Error ? err.message : 'Failed to save entry';
+				throw err; // Re-throw to let caller know save failed
+			} finally {
+				isSaving = false;
+			}
 		}
 	}
 </script>
@@ -162,7 +203,12 @@
 	<div class="modal-content" role="document">
 		<header class="modal-header">
 			<h2 id="modal-title" class="modal-title">{entry ? 'Edit Entry' : 'New Entry'}</h2>
-			<button type="button" class="close-button" onclick={() => void handleClose()} aria-label="Close dialog">
+			<button
+				type="button"
+				class="close-button"
+				onclick={() => void handleClose()}
+				aria-label="Close dialog"
+			>
 				<Icon name="x" size={24} />
 			</button>
 		</header>
@@ -182,6 +228,7 @@
 					placeholder="Entry title..."
 					bind:value={title}
 					oninput={handleInput}
+					onblur={handleTitleBlur}
 					onkeydown={handleTitleKeydown}
 					disabled={isSaving}
 				/>
@@ -197,6 +244,7 @@
 					disabled={isSaving}
 					onnavigateup={handleNavigateUpFromEditor}
 					onctrlenter={handleCtrlEnterFromEditor}
+					currentEntryId={entry?.id}
 				/>
 			</div>
 		</div>

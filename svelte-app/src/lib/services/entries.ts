@@ -2,20 +2,23 @@ import {
 	collection,
 	addDoc,
 	getDocs,
-	getDoc,
 	query,
 	orderBy,
 	where,
 	Timestamp,
 	doc,
 	updateDoc,
-	type QueryConstraint
+	type QueryConstraint,
+	getDocFromServer
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { auth } from './firebase';
 import type { Entry, CreateEntryInput } from '$lib/types/Entry';
 
 const ENTRIES_COLLECTION = 'entries';
+
+// Regex pattern for extracting entry IDs from wiki links
+const WIKI_LINK_PATTERN = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
 
 interface EntryDocument {
 	userId: string;
@@ -113,14 +116,15 @@ export async function getEntryById(id: string): Promise<Entry | null> {
 	}
 
 	const entryRef = doc(db, ENTRIES_COLLECTION, id);
-	const entrySnap = await getDoc(entryRef);
+	// Force fetch from server to avoid cache issues with backlink updates
+	const entrySnap = await getDocFromServer(entryRef);
 
 	if (!entrySnap.exists()) {
 		return null;
 	}
 
 	const data = entrySnap.data() as EntryDocument;
-	
+
 	// Verify the entry belongs to the current user
 	if (data.userId !== currentUser.uid) {
 		throw new Error('Unauthorized access to entry');
@@ -155,4 +159,61 @@ export async function updateEntry(id: string, input: CreateEntryInput): Promise<
 		content: input.content,
 		updatedAt: Timestamp.fromDate(new Date())
 	});
+
+	// Note: We no longer need to update backlinks since titles are loaded dynamically at runtime
+}
+
+/**
+ * Gets the title of an entry by ID (for wiki link resolution)
+ */
+export async function getEntryTitle(id: string): Promise<string | null> {
+	try {
+		const entry = await getEntryById(id);
+		return entry?.title ?? null;
+	} catch (err) {
+		console.error('Failed to get entry title:', err);
+		return null;
+	}
+}
+
+/**
+ * Extracts all entry IDs from wiki links in content
+ */
+export function extractEntryIdsFromContent(content: string): string[] {
+	const ids: string[] = [];
+	let match;
+
+	// Reset lastIndex for global regex before use
+	WIKI_LINK_PATTERN.lastIndex = 0;
+
+	while ((match = WIKI_LINK_PATTERN.exec(content)) !== null) {
+		ids.push(match[1]);
+	}
+
+	return [...new Set(ids)]; // Remove duplicates
+}
+
+/**
+ * Loads titles for multiple entry IDs and returns a map
+ */
+export async function loadEntryTitles(entryIds: string[]): Promise<Map<string, string>> {
+	const titleMap = new Map<string, string>();
+
+	// Load all titles in parallel with error handling
+	await Promise.allSettled(
+		entryIds.map(async (id) => {
+			try {
+				const title = await getEntryTitle(id);
+				if (title) {
+					titleMap.set(id, title);
+				}
+			} catch (err) {
+				console.warn(`Failed to load title for entry ${id}:`, err);
+				// Fallback: use the ID as the title if loading fails
+				titleMap.set(id, id);
+			}
+		})
+	);
+
+	return titleMap;
 }
