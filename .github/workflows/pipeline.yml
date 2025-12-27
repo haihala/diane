@@ -26,9 +26,9 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DIANE_PROD }}
           channelId: live
           projectId: diane-prod
-      - name: Deploy Firestore Rules
+      - name: Deploy Firestore Rules and Indexes
         uses: w9jds/firebase-action@master
         with:
-          args: deploy --only firestore:rules
+          args: deploy --only firestore:rules,firestore:indexes
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DIANE_PROD }}
