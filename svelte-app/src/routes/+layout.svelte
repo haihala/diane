@@ -2,7 +2,6 @@
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
 	import '../app.css';
-	import favicon from '$lib/assets/favicon.svg';
 	import { initializeAuth, user, loading } from '$lib/services/auth';
 	import Login from '$lib/components/Login.svelte';
 
@@ -16,10 +15,6 @@
 		initializeAuth();
 	});
 </script>
-
-<svelte:head>
-	<link rel="icon" href={favicon} />
-</svelte:head>
 
 {#if $loading}
 	<div class="loading-container">
