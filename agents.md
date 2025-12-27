@@ -20,18 +20,26 @@ The project uses strict ESLint rules to maintain code quality:
 - **Code Style**: Enforces modern JavaScript/TypeScript patterns
 - **Import Organization**: Requires consistent type imports
 
-**Before committing, always run**:
+### Running Checks
+
+**IMPORTANT: Always use the `validate` command to run all checks**:
 ```bash
 npm run validate
 ```
 
-This runs all quality checks:
+**DO NOT run individual checks separately** (like `npm run lint`, `npm run check`, or `tsc` alone). The `validate` command is specifically designed to run all quality checks together in the correct order:
 - Prettier formatting check
 - ESLint with strict rules
-- Svelte component checks
-- TypeScript compilation
+- Svelte component checks (`svelte-check`)
+- TypeScript compilation (`tsc --noEmit`)
 
-CI/CD pipelines run this automatically on all PRs and merges.
+**When to run `validate`**:
+- Before committing any code
+- After making changes to verify everything passes
+- Before creating a pull request
+- Anytime you need to verify code quality
+
+CI/CD pipelines run this automatically on all PRs and merges. All checks must pass.
 
 ## Core Principles
 
@@ -279,17 +287,20 @@ The project enforces strict code quality rules via ESLint:
 - `prefer-template` - Enforces template literals over concatenation
 - `eqeqeq` - Requires strict equality (`===`)
 
-**Before committing, always run**:
+### Validating Your Code
+
+**CRITICAL: Always use `npm run validate` to run all checks**. This is the single command that runs all quality checks:
+
 ```bash
 npm run validate
 ```
 
-This command runs:
+This command runs all checks in the correct order:
 1. `npm run lint` - Prettier + ESLint checks
-2. `npm run check` - Svelte component validation
+2. `npm run check` - Svelte component validation (`svelte-check`)
 3. `tsc --noEmit` - TypeScript compilation check
 
-All three must pass before code can be committed.
+**DO NOT run checks individually**. The `validate` command ensures all checks pass together, which is what CI/CD requires. All three checks must pass before code can be committed or merged.
 
 ### 9. Testing Philosophy
 
@@ -376,7 +387,7 @@ export function formatDate(date: Date | string, locale = 'en-US'): string {
 2. **Check for existing components**: Search before creating new ones
 3. **Identify reusable patterns**: Look for opportunities to abstract
 4. **Consider type safety**: Plan type definitions upfront
-5. **Run validation**: Ensure `npm run validate` passes before starting
+5. **Run validation**: Use `npm run validate` to ensure everything passes before starting
 
 ### When Creating Components
 
@@ -392,12 +403,13 @@ export function formatDate(date: Date | string, locale = 'en-US'): string {
 2. **Extract carefully**: Don't over-abstract prematurely
 3. **Maintain types**: Update TypeScript definitions
 4. **Test thoroughly**: Ensure no regressions
-5. **Validate changes**: Run `npm run validate` to catch issues
+5. **Validate changes**: Always run `npm run validate` after refactoring to catch any issues
 
 ## Code Review Checklist
 
 When reviewing or generating code, ensure:
 
+- [ ] **Run `npm run validate`** - All quality checks must pass
 - [ ] No unnecessary duplication (DRY principle applied)
 - [ ] TypeScript types are explicit and correct
 - [ ] **No `any` or `unknown` types used** - ESLint enforces this
@@ -418,7 +430,6 @@ When reviewing or generating code, ensure:
 - [ ] Error handling is implemented
 - [ ] Loading states are handled
 - [ ] No `console.log` statements (use `console.warn` or `console.error` if needed)
-- [ ] Code passes `npm run validate` without errors
 
 ## Anti-Patterns to Avoid
 
