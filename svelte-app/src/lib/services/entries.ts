@@ -2,6 +2,7 @@ import {
 	collection,
 	addDoc,
 	getDocs,
+	getDoc,
 	query,
 	orderBy,
 	where,
@@ -100,6 +101,39 @@ export async function searchEntries(searchTerm: string): Promise<Entry[]> {
  */
 export async function getAllEntries(): Promise<Entry[]> {
 	return searchEntries('');
+}
+
+/**
+ * Gets a single entry by ID
+ */
+export async function getEntryById(id: string): Promise<Entry | null> {
+	const currentUser = auth.currentUser;
+	if (!currentUser) {
+		throw new Error('User must be authenticated to get entries');
+	}
+
+	const entryRef = doc(db, ENTRIES_COLLECTION, id);
+	const entrySnap = await getDoc(entryRef);
+
+	if (!entrySnap.exists()) {
+		return null;
+	}
+
+	const data = entrySnap.data() as EntryDocument;
+	
+	// Verify the entry belongs to the current user
+	if (data.userId !== currentUser.uid) {
+		throw new Error('Unauthorized access to entry');
+	}
+
+	return {
+		id: entrySnap.id,
+		userId: data.userId,
+		title: data.title,
+		content: data.content,
+		createdAt: data.createdAt.toDate(),
+		updatedAt: data.updatedAt.toDate()
+	};
 }
 
 /**

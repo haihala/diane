@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import EntryModal from './EntryModal.svelte';
 	import Icon from './Icon.svelte';
 	import { searchEntries } from '$lib/services/entries';
@@ -20,7 +21,6 @@
 	let inputElement: HTMLInputElement | undefined = $state();
 	let popoverElement: HTMLDivElement | undefined = $state();
 	let searchResults = $state<Entry[]>([]);
-	let editingEntry = $state<Entry | undefined>(undefined);
 
 	// Auto-focus on mount if requested
 	onMount(() => {
@@ -131,14 +131,11 @@
 		if (!option) return;
 
 		if (option.type === 'new') {
-			editingEntry = undefined;
 			isModalOpen = true;
 			isFocused = false;
 		} else if (option.type === 'result' && option.data) {
-			// Open edit modal instead of submitting
-			editingEntry = option.data;
-			isModalOpen = true;
-			isFocused = false;
+			// Navigate to the entry page (which will open the modal)
+			void goto(`/entries/${option.data.id}`);
 		}
 	}
 
@@ -148,7 +145,6 @@
 
 	function handleModalClose(): void {
 		isModalOpen = false;
-		editingEntry = undefined;
 		inputElement?.focus();
 	}
 
@@ -232,7 +228,6 @@
 	onClose={handleModalClose}
 	onSave={handleModalSave}
 	initialTitle={inputValue.trim()}
-	entry={editingEntry}
 />
 
 <style>
