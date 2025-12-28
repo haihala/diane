@@ -9,15 +9,10 @@
 	// eslint-disable-next-line prefer-const
 	let { data }: { data: PageData } = $props();
 
-	let isModalOpen = $state(false);
 	let entryModalRef: { saveIfNeeded: () => Promise<void> } | undefined = $state();
 
-	// Reopen modal when data changes (when navigating to a different entry)
-	$effect(() => {
-		if (data.entry) {
-			isModalOpen = true;
-		}
-	});
+	// Modal should be open whenever we have entry data
+	let isModalOpen = $derived(!!data.entry);
 
 	// Save entry before navigating away
 	beforeNavigate((_navigation) => {
@@ -38,8 +33,8 @@
 	});
 
 	function handleModalClose(): void {
-		isModalOpen = false;
 		// Navigate back to home when modal closes
+		// This will cause data.entry to become undefined, closing the modal
 		const path = resolveRoute('/');
 		// eslint-disable-next-line svelte/no-navigation-without-resolve
 		void goto(path);

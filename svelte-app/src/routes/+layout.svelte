@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
+	import { invalidateAll } from '$app/navigation';
 	import '../app.css';
 	import { initializeAuth, user, loading } from '$lib/services/auth';
 	import Login from '$lib/components/Login.svelte';
@@ -11,12 +12,35 @@
 
 	const { children }: Props = $props();
 
+	// Track if we're invalidating data after login
+	let isInvalidating = $state(false);
+
 	onMount(() => {
 		initializeAuth();
 	});
+
+	// Track previous user state to detect actual changes
+	let previousUser: typeof $user = $state(undefined);
+
+	// Invalidate all data when user actually logs in or out
+	$effect(() => {
+		// Wait for auth to initialize
+		if ($loading) return;
+
+		// Check if user state actually changed (not just initialized)
+		if (previousUser !== undefined && previousUser !== $user) {
+			isInvalidating = true;
+			invalidateAll().then(() => {
+				isInvalidating = false;
+			});
+		}
+
+		// Update previous user for next comparison
+		previousUser = $user;
+	});
 </script>
 
-{#if $loading}
+{#if $loading || isInvalidating}
 	<div class="loading-container">
 		<div class="loading-spinner"></div>
 		<p>Loading...</p>

@@ -7,7 +7,15 @@ export const load: PageLoad = async ({ params }) => {
 	const { entryId } = params;
 
 	// Wait for auth to be initialized before loading the entry
-	await waitForAuth();
+	const user = await waitForAuth();
+
+	// If no user is authenticated, return undefined and let the layout show the login page
+	// After login, SvelteKit will re-run this loader automatically
+	if (!user) {
+		return {
+			entry: undefined
+		};
+	}
 
 	try {
 		const entry = await getEntryById(entryId);
