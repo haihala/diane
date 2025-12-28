@@ -6,7 +6,7 @@ export { default as SearchBar } from './components/SearchBar.svelte';
 export { default as EntryModal } from './components/EntryModal.svelte';
 
 // Export types
-export type { Entry, CreateEntryInput } from './types/Entry';
+export type { Entry, CreateEntryInput, UserData } from './types/Entry';
 
 // Export services
 export { createEntry, searchEntries, getAllEntries } from './services/entries';

@@ -7,9 +7,12 @@ import {
 	type User
 } from 'firebase/auth';
 import { auth, googleProvider } from './firebase';
+import { ensureUserData } from './users';
+import type { UserData } from '$lib/types/Entry';
 
 // Auth store
 export const user = writable<User | null | undefined>(undefined);
+export const userData = writable<UserData | null>(null);
 export const loading = writable<boolean>(true);
 
 // Promise that resolves when auth is initialized
@@ -28,8 +31,26 @@ export function initializeAuth(): void {
 	authInitialized = new Promise((resolve) => {
 		onAuthStateChanged(auth, (firebaseUser) => {
 			user.set(firebaseUser);
-			loading.set(false);
-			resolve(firebaseUser);
+
+			// If user is authenticated, ensure their user data exists in Firestore
+			if (firebaseUser) {
+				ensureUserData(firebaseUser.uid, firebaseUser.displayName, firebaseUser.email)
+					.then((data) => {
+						userData.set(data);
+					})
+					.catch((error) => {
+						console.error('Error ensuring user data:', error);
+						userData.set(null);
+					})
+					.finally(() => {
+						loading.set(false);
+						resolve(firebaseUser);
+					});
+			} else {
+				userData.set(null);
+				loading.set(false);
+				resolve(firebaseUser);
+			}
 		});
 	});
 }

@@ -12,3 +12,9 @@ export interface CreateEntryInput {
 	title: string;
 	content: string;
 }
+
+export interface UserData {
+	isAdmin: boolean;
+	displayName: string | null;
+	email: string | null;
+}
