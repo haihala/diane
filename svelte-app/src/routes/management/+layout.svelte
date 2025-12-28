@@ -2,7 +2,7 @@
 	import { user, userData, impersonatedUser } from '$lib/services/auth';
 	import UserInfo from '$lib/components/UserInfo.svelte';
 	import type { Snippet } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 
 	interface Props {
@@ -17,7 +17,7 @@
 	);
 
 	function isActive(path: string): boolean {
-		return $page.url.pathname === path;
+		return page.url.pathname === path;
 	}
 </script>
 
@@ -76,6 +76,17 @@
 					class:active={isActive('/management/statistics')}
 				>
 					Statistics
+				</a>
+			</div>
+
+			<div class="sidebar-section">
+				<h3 class="section-header">Shared</h3>
+				<a
+					href={resolve('/management/wikis')}
+					class="nav-item"
+					class:active={isActive('/management/wikis')}
+				>
+					Wikis
 				</a>
 			</div>
 		</nav>

@@ -21,10 +21,16 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
     
-    // Entries collection - users can access their own entries, admins can access all
+    // Entries collection - restricted read access, authenticated write access
     match /entries/{entry} {
-      // Allow read if the user is authenticated and the entry belongs to them, or if they're an admin
-      allow read: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      // Allow read if:
+      // 1. Entry has wikiIds field set (indicating it belongs to public wikis), OR
+      // 2. User is authenticated and owns the entry, OR
+      // 3. User is an admin
+      // Note: Check wikiIds first to allow public access without auth
+      allow read: if (resource.data.keys().hasAny(['wikiIds'])) ||
+                     (request.auth != null && resource.data.userId == request.auth.uid) ||
+                     (request.auth != null && isAdmin());
       
       // Allow create if the user is authenticated and sets their own userId
       allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
@@ -36,6 +42,24 @@ service cloud.firestore {
                      isAdmin());
       
       // Allow delete if the user is authenticated and owns the entry, or if they're an admin
+      allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Wikis collection - public read access, authenticated write access
+    match /wikis/{wiki} {
+      // Allow public read access for all wikis
+      allow read: if true;
+      
+      // Allow create if the user is authenticated and sets their own userId
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      
+      // Allow update if the user is authenticated and owns the wiki, or if they're an admin
+      // Users cannot change the userId field
+      allow update: if request.auth != null && 
+                    ((resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid) || 
+                     isAdmin());
+      
+      // Allow delete if the user is authenticated and owns the wiki, or if they're an admin
       allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
     }
   }

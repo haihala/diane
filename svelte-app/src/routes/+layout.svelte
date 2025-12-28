@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { onMount } from 'svelte';
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
 	import '../app.css';
 	import { initializeAuth, user, loading } from '$lib/services/auth';
 	import Login from '$lib/components/Login.svelte';
@@ -15,6 +16,9 @@
 
 	// Track if we're invalidating data after login
 	let isInvalidating = $state(false);
+
+	// Check if current route is public (wiki pages)
+	const isPublicRoute = $derived(page.url.pathname.startsWith('/wiki'));
 
 	onMount(() => {
 		initializeAuth();
@@ -41,7 +45,10 @@
 	});
 </script>
 
-{#if $loading || isInvalidating}
+{#if isPublicRoute}
+	<!-- Public routes don't require authentication -->
+	{@render children()}
+{:else if $loading || isInvalidating}
 	<div class="loading-container">
 		<LoadingSpinner message="Loading..." size="lg" />
 	</div>

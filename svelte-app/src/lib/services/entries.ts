@@ -9,7 +9,8 @@ import {
 	doc,
 	updateDoc,
 	type QueryConstraint,
-	getDocFromServer
+	getDocFromServer,
+	deleteField
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { auth } from './firebase';
@@ -28,6 +29,7 @@ interface EntryDocument {
 	title: string;
 	content: string;
 	tags?: string[];
+	wikiIds?: string[];
 	createdAt: { toDate: () => Date };
 	updatedAt: { toDate: () => Date };
 }
@@ -117,6 +119,7 @@ export async function searchEntries(searchTerm: string): Promise<Entry[]> {
 			title: data.title,
 			content: data.content,
 			tags: data.tags ?? [],
+			wikiIds: data.wikiIds ?? [],
 			createdAt: data.createdAt.toDate(),
 			updatedAt: data.updatedAt.toDate()
 		} as Entry;
@@ -171,6 +174,7 @@ export async function getEntryById(id: string): Promise<Entry | null> {
 		title: data.title,
 		content: data.content,
 		tags: data.tags ?? [],
+		wikiIds: data.wikiIds ?? [],
 		createdAt: data.createdAt.toDate(),
 		updatedAt: data.updatedAt.toDate()
 	};
@@ -199,6 +203,9 @@ export async function updateEntry(id: string, input: CreateEntryInput): Promise<
 		tags,
 		updatedAt: Timestamp.fromDate(new Date())
 	});
+
+	// Automatically sync wiki assignments after entry update
+	await syncEntryWikis(id);
 
 	// Note: We no longer need to update backlinks since titles are loaded dynamically at runtime
 }
@@ -360,6 +367,52 @@ export async function renameTag(oldTag: string, newTag: string): Promise<void> {
 }
 
 /**
+ * Recursively gets all entries linked from a starting entry
+ */
+export async function getWikiPages(rootPageId: string): Promise<Entry[]> {
+	const currentUser = auth.currentUser;
+	if (!currentUser) {
+		throw new Error('User must be authenticated to get wiki pages');
+	}
+
+	const visitedIds = new Set<string>();
+	const pages: Entry[] = [];
+	const toVisit = [rootPageId];
+
+	while (toVisit.length > 0) {
+		const currentId = toVisit.shift();
+		if (!currentId || visitedIds.has(currentId)) {
+			continue;
+		}
+
+		visitedIds.add(currentId);
+
+		try {
+			const entry = await getEntryById(currentId);
+			if (!entry) {
+				continue;
+			}
+
+			pages.push(entry);
+
+			// Extract all linked entry IDs from content
+			const linkedIds = extractEntryIdsFromContent(entry.content);
+
+			// Add unvisited linked IDs to the queue
+			for (const linkedId of linkedIds) {
+				if (!visitedIds.has(linkedId)) {
+					toVisit.push(linkedId);
+				}
+			}
+		} catch (error) {
+			console.error(`Failed to load entry ${currentId}:`, error);
+		}
+	}
+
+	return pages;
+}
+
+/**
  * Deletes a tag from all entries that have it
  */
 export async function deleteTag(tagToDelete: string): Promise<void> {
@@ -387,4 +440,129 @@ export async function deleteTag(tagToDelete: string): Promise<void> {
 	});
 
 	await Promise.all(updatePromises);
+}
+
+/**
+ * Gets a single entry by ID without authentication (for public access)
+ */
+export async function getEntryByIdPublic(id: string): Promise<Entry | null> {
+	const entryRef = doc(db, ENTRIES_COLLECTION, id);
+	const entrySnap = await getDocFromServer(entryRef);
+
+	if (!entrySnap.exists()) {
+		return null;
+	}
+
+	const data = entrySnap.data() as EntryDocument;
+
+	return {
+		id: entrySnap.id,
+		userId: data.userId,
+		title: data.title,
+		content: data.content,
+		tags: data.tags ?? [],
+		wikiIds: data.wikiIds ?? [],
+		createdAt: data.createdAt.toDate(),
+		updatedAt: data.updatedAt.toDate()
+	};
+}
+
+/**
+ * Gets the title of an entry by ID without authentication (for public access)
+ */
+export async function getEntryTitlePublic(id: string): Promise<string | null> {
+	try {
+		const entry = await getEntryByIdPublic(id);
+		return entry?.title ?? null;
+	} catch (err) {
+		console.error('Failed to get entry title:', err);
+		return null;
+	}
+}
+
+/**
+ * Loads titles for multiple entry IDs without authentication (for public access)
+ */
+export async function loadEntryTitlesPublic(entryIds: string[]): Promise<Map<string, string>> {
+	const titleMap = new Map<string, string>();
+
+	if (!entryIds || entryIds.length === 0) {
+		return titleMap;
+	}
+
+	// Filter out invalid IDs
+	const validIds = entryIds.filter((id) => id && typeof id === 'string' && id.trim());
+
+	if (validIds.length === 0) {
+		return titleMap;
+	}
+
+	// Load all titles in parallel with error handling
+	await Promise.allSettled(
+		validIds.map(async (id) => {
+			try {
+				const title = await getEntryTitlePublic(id);
+				if (title) {
+					titleMap.set(id, title);
+				}
+			} catch (err) {
+				console.warn(`Failed to load title for entry ${id}:`, err);
+				// Fallback: use the ID as the title if loading fails
+				titleMap.set(id, id);
+			}
+		})
+	);
+
+	return titleMap;
+}
+
+/**
+ * Syncs an entry's wiki assignments based on which wikis contain it
+ * This is called automatically after updating an entry to ensure wiki graphs are up-to-date
+ */
+export async function syncEntryWikis(entryId: string): Promise<void> {
+	const currentUser = auth.currentUser;
+	if (!currentUser) {
+		throw new Error('User must be authenticated to sync entry wikis');
+	}
+
+	// Import getAllWikis from wikis service
+	const { getAllWikis } = await import('./wikis');
+
+	// Get all wikis for the current user
+	const allWikis = await getAllWikis();
+
+	// Check which wikis this entry belongs to
+	const wikisContainingEntry = new Set<string>();
+
+	for (const wiki of allWikis) {
+		try {
+			// Get all pages in this wiki
+			const wikiPages = await getWikiPages(wiki.rootPageId);
+
+			// Check if this entry is in the wiki
+			if (wikiPages.some((page) => page.id === entryId)) {
+				wikisContainingEntry.add(wiki.id);
+			}
+		} catch (error) {
+			console.error(`Failed to check wiki ${wiki.id}:`, error);
+		}
+	}
+
+	// Update the entry's wikiIds to match which wikis contain it
+	const entryRef = doc(db, ENTRIES_COLLECTION, entryId);
+	const updatedWikiIds = Array.from(wikisContainingEntry);
+
+	if (updatedWikiIds.length > 0) {
+		await updateDoc(entryRef, {
+			wikiIds: updatedWikiIds,
+			updatedAt: Timestamp.fromDate(new Date())
+		});
+	} else {
+		// If no wikis contain this entry, remove the wikiIds field
+		await updateDoc(entryRef, {
+			wikiIds: deleteField(),
+			updatedAt: Timestamp.fromDate(new Date())
+		});
+	}
 }

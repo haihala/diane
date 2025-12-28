@@ -4,6 +4,7 @@ export interface Entry {
 	title: string;
 	content: string;
 	tags: string[];
+	wikiIds?: string[]; // Array of wiki IDs this entry belongs to (for public access)
 	createdAt: Date;
 	updatedAt: Date;
 }

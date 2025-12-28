@@ -477,11 +477,18 @@ export class MarkdownParser {
 	private tokens: Token[];
 	private cursorPos: number;
 	private entryTitleMap?: EntryTitleMap;
+	private wikiSlug?: string;
 
-	constructor(tokens: Token[], cursorPos: number, entryTitleMap?: EntryTitleMap) {
+	constructor(
+		tokens: Token[],
+		cursorPos: number,
+		entryTitleMap?: EntryTitleMap,
+		wikiSlug?: string
+	) {
 		this.tokens = tokens;
 		this.cursorPos = cursorPos;
 		this.entryTitleMap = entryTitleMap;
+		this.wikiSlug = wikiSlug;
 	}
 
 	// Render tokens to HTML, keeping cursor token as plain text
@@ -616,7 +623,7 @@ export class MarkdownParser {
 				return `<a href="${this.escapeHtml(token.href ?? '')}">${this.escapeHtml(token.content)}</a>`;
 
 			case 'wiki-link': {
-				// Wiki links render as links to /entries/[entryId]
+				// Wiki links render as links to /entries/[entryId] or /wiki/[slug]/[entryId]
 				const entryId = token.entryId ?? '';
 
 				// Check if the entry exists in the title map
@@ -636,7 +643,12 @@ export class MarkdownParser {
 					displayName = this.entryTitleMap.get(entryId) ?? entryId;
 				}
 
-				return `<a href="/entries/${this.escapeHtml(entryId)}" class="wiki-link">${this.escapeHtml(displayName)}</a>`;
+				// Generate the appropriate URL based on context
+				const href = this.wikiSlug
+					? `/wiki/${this.escapeHtml(this.wikiSlug)}/${this.escapeHtml(entryId)}`
+					: `/entries/${this.escapeHtml(entryId)}`;
+
+				return `<a href="${href}" class="wiki-link">${this.escapeHtml(displayName)}</a>`;
 			}
 
 			case 'list-item': {
@@ -719,11 +731,12 @@ export function extractTagsFromTitle(title: string): { tags: string[]; cleanedTi
 export function parseMarkdown(
 	text: string,
 	cursorPos: number,
-	entryTitleMap?: EntryTitleMap
+	entryTitleMap?: EntryTitleMap,
+	wikiSlug?: string
 ): ParseResult {
 	const tokenizer = new MarkdownTokenizer(text);
 	const tokens = tokenizer.tokenize();
-	const parser = new MarkdownParser(tokens, cursorPos, entryTitleMap);
+	const parser = new MarkdownParser(tokens, cursorPos, entryTitleMap, wikiSlug);
 	const html = parser.render();
 
 	return { tokens, html };
