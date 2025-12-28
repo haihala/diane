@@ -30,7 +30,7 @@
 		// Check if user state actually changed (not just initialized)
 		if (previousUser !== undefined && previousUser !== $user) {
 			isInvalidating = true;
-			invalidateAll().then(() => {
+			void invalidateAll().then(() => {
 				isInvalidating = false;
 			});
 		}

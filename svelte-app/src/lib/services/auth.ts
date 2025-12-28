@@ -46,9 +46,14 @@ export async function waitForAuth(): Promise<User | null> {
 		initializeAuth();
 	}
 
+	// Auth must be initialized at this point
+	if (!authInitialized) {
+		throw new Error('Failed to initialize authentication');
+	}
+
 	// Wait for initialization to complete
-	await authInitialized!;
-	
+	await authInitialized;
+
 	// Return the CURRENT auth state (not the cached promise result)
 	return auth.currentUser;
 }

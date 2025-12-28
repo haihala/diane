@@ -13,6 +13,10 @@ export type TokenType =
 	| 'code-block'
 	| 'hr';
 
+// Constants
+const LIST_INDENT_SPACES = 2; // 2 spaces = 1 level
+const LIST_INDENT_PX_PER_LEVEL = 20;
+
 export interface Token {
 	type: TokenType;
 	raw: string; // Original markdown text
@@ -194,7 +198,7 @@ export class MarkdownTokenizer {
 		const start = this.pos;
 		const indent = match[1];
 		const content = match[2];
-		const level = Math.floor(indent.length / 2); // 2 spaces = 1 level, 4 spaces = 2 levels
+		const level = Math.floor(indent.length / LIST_INDENT_SPACES);
 
 		// Determine if it's a numbered list or bullet list
 		const listMarker = this.text.slice(this.pos + indent.length).match(/^([-*+]|\d+\.)/)?.[0];
@@ -632,7 +636,7 @@ export class MarkdownParser {
 
 			case 'list-item': {
 				const indent = token.level ?? 0;
-				const marginLeft = indent * 20; // 20px per level
+				const marginLeft = indent * LIST_INDENT_PX_PER_LEVEL;
 				// Parse inline content within the list item
 				const contentHtml = this.parseInlineContent(token.content);
 				return `<li style="margin-left: ${marginLeft}px">${contentHtml}</li>`;

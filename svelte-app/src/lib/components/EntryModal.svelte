@@ -64,11 +64,6 @@
 		}
 	}
 
-	function handleTitleBlur(): void {
-		// Title changes are handled automatically through the content now
-		// No need to update a separate map
-	}
-
 	async function handleClose(): Promise<void> {
 		// If editing and there are unsaved changes, save them before closing
 		if (entry && hasUnsavedChanges && title.trim()) {
@@ -131,16 +126,16 @@
 		}
 	}
 
-	function handleKeydown(e: KeyboardEvent): void {
-		if (e.key === 'Escape') {
-			e.preventDefault();
+	function handleKeydown(event: KeyboardEvent): void {
+		if (event.key === 'Escape') {
+			event.preventDefault();
 			void handleClose();
 		}
 	}
 
-	function handleBackdropClick(e: MouseEvent): void {
+	function handleBackdropClick(event: MouseEvent): void {
 		// Only close if clicking directly on the dialog element (the backdrop)
-		if (e.target === e.currentTarget) {
+		if (event.target === event.currentTarget) {
 			void handleClose();
 		}
 	}
@@ -155,12 +150,12 @@
 		void handleSave();
 	}
 
-	function handleTitleKeydown(e: KeyboardEvent): void {
-		if (e.key === 'Enter' && e.ctrlKey) {
-			e.preventDefault();
+	function handleTitleKeydown(event: KeyboardEvent): void {
+		if (event.key === 'Enter' && event.ctrlKey) {
+			event.preventDefault();
 			void handleSave();
-		} else if (e.key === 'Enter') {
-			e.preventDefault();
+		} else if (event.key === 'Enter') {
+			event.preventDefault();
 			// Focus the markdown editor when Enter is pressed
 			if (markdownEditorElement && 'focus' in markdownEditorElement) {
 				(markdownEditorElement as { focus: () => void }).focus();
@@ -228,7 +223,6 @@
 					placeholder="Entry title..."
 					bind:value={title}
 					oninput={handleInput}
-					onblur={handleTitleBlur}
 					onkeydown={handleTitleKeydown}
 					disabled={isSaving}
 				/>

@@ -1,8 +1,12 @@
 <script lang="ts">
+	import { SvelteMap } from 'svelte/reactivity';
 	import { parseMarkdown } from '$lib/services/markdown';
 	import { extractEntryIdsFromContent, loadEntryTitles } from '$lib/services/entries';
 	import LinkSelectorPopover from './LinkSelectorPopover.svelte';
 	import type { Entry } from '$lib/types/Entry';
+
+	// Constants
+	const TAB_INDENT_SPACES = 2;
 
 	interface Props {
 		value?: string;
@@ -23,7 +27,7 @@
 	let editorElement: HTMLDivElement | undefined = $state();
 	let editingBlockIndex: number | null = $state(null);
 	let cursorPosition: number = $state(0);
-	const textareaElements: { [key: number]: HTMLTextAreaElement } = {};
+	const textareaElements = new SvelteMap<number, HTMLTextAreaElement>();
 
 	// Internal block array - this is the source of truth for editing
 	let blocks = $state<string[]>(['']);
@@ -117,8 +121,8 @@
 	}
 
 	// Handle input in textarea
-	function handleBlockInput(blockIndex: number, e: Event): void {
-		const target = e.target as HTMLTextAreaElement;
+	function handleBlockInput(blockIndex: number, event: Event): void {
+		const target = event.target as HTMLTextAreaElement;
 		const newText = target.value;
 
 		blocks[blockIndex] = newText;
@@ -134,7 +138,7 @@
 		autoResizeTextarea(target);
 
 		// Trigger parent's oninput
-		oninput?.(e);
+		oninput?.(event);
 	}
 
 	// Handle clicking on a rendered block to edit it
@@ -191,7 +195,7 @@
 		if (editingBlockIndex === null) return;
 
 		const currentBlock = blocks[editingBlockIndex];
-		const textarea = textareaElements[editingBlockIndex];
+		const textarea = textareaElements.get(editingBlockIndex);
 
 		if (!textarea) return;
 
@@ -261,32 +265,35 @@
 	}
 
 	// Handle keyboard navigation in textarea
-	function handleKeyDown(blockIndex: number, e: KeyboardEvent): void {
-		const target = e.target as HTMLTextAreaElement;
+	function handleKeyDown(blockIndex: number, event: KeyboardEvent): void {
+		const target = event.target as HTMLTextAreaElement;
 		const cursorPos = target.selectionStart || 0;
 		const cursorEnd = target.selectionEnd || 0;
 		const text = target.value;
 		const hasSelection = cursorPos !== cursorEnd;
 
 		// If link popover is open, let it handle arrow keys and Enter
-		if (showLinkPopover && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter')) {
-			e.preventDefault();
+		if (
+			showLinkPopover &&
+			(event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter')
+		) {
+			event.preventDefault();
 			if (linkSelectorRef?.handleExternalKeydown) {
-				linkSelectorRef.handleExternalKeydown(e);
+				linkSelectorRef.handleExternalKeydown(event);
 			}
 			return;
 		}
 
 		// Handle Escape to close link popover
-		if (e.key === 'Escape' && showLinkPopover) {
-			e.preventDefault();
+		if (event.key === 'Escape' && showLinkPopover) {
+			event.preventDefault();
 			showLinkPopover = false;
 			return;
 		}
 
 		// Handle Ctrl+Enter for save
-		if (e.key === 'Enter' && e.ctrlKey) {
-			e.preventDefault();
+		if (event.key === 'Enter' && event.ctrlKey) {
+			event.preventDefault();
 			onctrlenter?.();
 			return;
 		}
@@ -296,11 +303,11 @@
 
 		// Delete block when all content is selected (Ctrl+A then Delete/Backspace)
 		if (
-			(e.key === 'Backspace' || e.key === 'Delete') &&
+			(event.key === 'Backspace' || event.key === 'Delete') &&
 			isEntireBlockSelected &&
 			blocks.length > 1
 		) {
-			e.preventDefault();
+			event.preventDefault();
 
 			// Remove this block and move to previous block
 			if (blockIndex > 0) {
@@ -316,13 +323,13 @@
 				editingBlockIndex = 0;
 				cursorPosition = 0;
 			}
-			oninput?.(e);
+			oninput?.(event);
 			return;
 		}
 
 		// Handle Tab key for indentation
-		if (e.key === 'Tab') {
-			e.preventDefault();
+		if (event.key === 'Tab') {
+			event.preventDefault();
 
 			// Get current line
 			const lines = text.split('\n');
@@ -336,9 +343,9 @@
 				lineStartPos += lines[i].length + 1; // +1 for newline
 			}
 
-			if (e.shiftKey) {
-				// Shift+Tab: Reduce indentation (remove up to 2 spaces from start of line)
-				const match = currentLine.match(/^(\s{1,2})(.*)/);
+			if (event.shiftKey) {
+				// Shift+Tab: Reduce indentation (remove up to TAB_INDENT_SPACES from start of line)
+				const match = currentLine.match(new RegExp(`^(\\s{1,${TAB_INDENT_SPACES}})(.*)`));
 				if (match) {
 					const removedSpaces = match[1].length;
 					const newLine = match[2];
@@ -354,8 +361,9 @@
 					}, 0);
 				}
 			} else {
-				// Tab: Add 2 spaces to start of line
-				const newLine = `  ${currentLine}`;
+				// Tab: Add TAB_INDENT_SPACES to start of line
+				const indent = ' '.repeat(TAB_INDENT_SPACES);
+				const newLine = `${indent}${currentLine}`;
 				lines[currentLineIndex] = newLine;
 				const newValue = lines.join('\n');
 				blocks[blockIndex] = newValue;
@@ -363,15 +371,15 @@
 
 				// Adjust cursor position
 				setTimeout(() => {
-					target.selectionStart = target.selectionEnd = cursorPos + 2;
+					target.selectionStart = target.selectionEnd = cursorPos + TAB_INDENT_SPACES;
 				}, 0);
 			}
 			return;
 		}
 
 		// Handle Enter key - different behavior for list blocks
-		if (e.key === 'Enter' && !e.shiftKey) {
-			e.preventDefault();
+		if (event.key === 'Enter' && !event.shiftKey) {
+			event.preventDefault();
 
 			// Check if current block is a list
 			if (isListBlock(text)) {
@@ -394,7 +402,7 @@
 					syncValueFromBlocks();
 					editingBlockIndex = blockIndex + 1;
 					cursorPosition = 0;
-					oninput?.(e);
+					oninput?.(event);
 				} else {
 					// Inside a list block - add newline with list prefix
 					const prefix = getListPrefix(currentLine);
@@ -408,7 +416,7 @@
 
 					// Manually update the textarea since we need to trigger the effect
 					setTimeout(() => {
-						const textarea = textareaElements[blockIndex];
+						const textarea = textareaElements.get(blockIndex);
 						if (textarea) {
 							textarea.value = newText;
 							textarea.selectionStart = textarea.selectionEnd = cursorPosition;
@@ -416,7 +424,7 @@
 						}
 					}, 0);
 
-					oninput?.(e);
+					oninput?.(event);
 				}
 				return;
 			} else {
@@ -429,14 +437,14 @@
 				syncValueFromBlocks();
 				editingBlockIndex = blockIndex + 1;
 				cursorPosition = 0;
-				oninput?.(e);
+				oninput?.(event);
 				return;
 			}
 		}
 
 		// Handle Backspace at very start of block - merge with previous
-		if (e.key === 'Backspace' && cursorPos === 0 && !hasSelection && blockIndex > 0) {
-			e.preventDefault();
+		if (event.key === 'Backspace' && cursorPos === 0 && !hasSelection && blockIndex > 0) {
+			event.preventDefault();
 			const prevBlock = blocks[blockIndex - 1];
 			const currentBlock = blocks[blockIndex];
 			const mergedPosition = prevBlock.length;
@@ -449,28 +457,28 @@
 			editingBlockIndex = blockIndex - 1;
 			cursorPosition = mergedPosition;
 
-			oninput?.(e);
+			oninput?.(event);
 			return;
 		}
 
 		// Handle ArrowUp at start of block - move to previous block or navigate up
-		if (e.key === 'ArrowUp' && cursorPos === 0) {
+		if (event.key === 'ArrowUp' && cursorPos === 0) {
 			if (blockIndex > 0) {
-				e.preventDefault();
+				event.preventDefault();
 				editingBlockIndex = blockIndex - 1;
 				cursorPosition = blocks[blockIndex - 1].length;
 				return;
 			} else if (blockIndex === 0) {
 				// At the first block, notify parent to handle navigation
-				e.preventDefault();
+				event.preventDefault();
 				onnavigateup?.();
 				return;
 			}
 		}
 
 		// Handle ArrowDown at end of block - move to next block
-		if (e.key === 'ArrowDown' && cursorPos === text.length && blockIndex < blocks.length - 1) {
-			e.preventDefault();
+		if (event.key === 'ArrowDown' && cursorPos === text.length && blockIndex < blocks.length - 1) {
+			event.preventDefault();
 			editingBlockIndex = blockIndex + 1;
 			cursorPosition = 0;
 			return;
@@ -485,10 +493,10 @@
 
 	// Store textarea reference action
 	function storeTextareaRef(node: HTMLTextAreaElement, index: number): { destroy: () => void } {
-		textareaElements[index] = node;
+		textareaElements.set(index, node);
 		return {
 			destroy() {
-				delete textareaElements[index];
+				textareaElements.delete(index);
 			}
 		};
 	}
@@ -496,7 +504,7 @@
 	// Focus and set cursor position when editing a block
 	$effect(() => {
 		if (editingBlockIndex !== null) {
-			const textarea = textareaElements[editingBlockIndex];
+			const textarea = textareaElements.get(editingBlockIndex);
 			if (textarea) {
 				setTimeout(() => {
 					textarea.focus();

@@ -12,7 +12,7 @@
 	let entryModalRef: { saveIfNeeded: () => Promise<void> } | undefined = $state();
 
 	// Modal should be open whenever we have entry data
-	let isModalOpen = $derived(!!data.entry);
+	const isModalOpen = $derived(!!data.entry);
 
 	// Save entry before navigating away
 	beforeNavigate((_navigation) => {
