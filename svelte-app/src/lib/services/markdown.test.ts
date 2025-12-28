@@ -433,8 +433,49 @@ describe('MarkdownParser', () => {
 			const tokens = tokenizer.tokenize();
 			const parser = new MarkdownParser(tokens, -1);
 			const html = parser.render();
+			expect(html).toContain('<ul>');
 			expect(html).toContain('<li');
 			expect(html).toContain('>item</li>');
+			expect(html).toContain('</ul>');
+		});
+
+		it('should render numbered list items', () => {
+			const tokenizer = new MarkdownTokenizer('1. first\n2. second\n');
+			const tokens = tokenizer.tokenize();
+			const parser = new MarkdownParser(tokens, -1);
+			const html = parser.render();
+			expect(html).toContain('<ol>');
+			expect(html).toContain('<li');
+			expect(html).toContain('>first</li>');
+			expect(html).toContain('>second</li>');
+			expect(html).toContain('</ol>');
+		});
+
+		it('should render multiple bullet list items in ul', () => {
+			const tokenizer = new MarkdownTokenizer('- first\n- second\n- third\n');
+			const tokens = tokenizer.tokenize();
+			const parser = new MarkdownParser(tokens, -1);
+			const html = parser.render();
+			expect(html).toContain('<ul>');
+			expect(html).toContain('>first</li>');
+			expect(html).toContain('>second</li>');
+			expect(html).toContain('>third</li>');
+			expect(html).toContain('</ul>');
+			// Should only have one <ul> tag
+			expect((html.match(/<ul>/g) || []).length).toBe(1);
+		});
+
+		it('should separate bullet and numbered lists', () => {
+			const tokenizer = new MarkdownTokenizer('- bullet\n1. numbered\n');
+			const tokens = tokenizer.tokenize();
+			const parser = new MarkdownParser(tokens, -1);
+			const html = parser.render();
+			expect(html).toContain('<ul>');
+			expect(html).toContain('</ul>');
+			expect(html).toContain('<ol>');
+			expect(html).toContain('</ol>');
+			expect(html).toContain('>bullet</li>');
+			expect(html).toContain('>numbered</li>');
 		});
 
 		it('should render blockquotes', () => {

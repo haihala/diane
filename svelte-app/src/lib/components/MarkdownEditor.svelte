@@ -256,7 +256,9 @@
 		const target = e.target as HTMLTextAreaElement;
 		const blocks = getBlocks();
 		const cursorPos = target.selectionStart || 0;
+		const cursorEnd = target.selectionEnd || 0;
 		const text = target.value;
+		const hasSelection = cursorPos !== cursorEnd;
 
 		// If link popover is open, let it handle arrow keys and Enter
 		if (showLinkPopover && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter')) {
@@ -278,6 +280,35 @@
 		if (e.key === 'Enter' && e.ctrlKey) {
 			e.preventDefault();
 			onctrlenter?.();
+			return;
+		}
+
+		// Handle Delete/Backspace when all text is selected
+		const isEntireBlockSelected = hasSelection && cursorPos === 0 && cursorEnd === text.length;
+
+		// Delete block when all content is selected (Ctrl+A then Delete/Backspace)
+		if (
+			(e.key === 'Backspace' || e.key === 'Delete') &&
+			isEntireBlockSelected &&
+			blocks.length > 1
+		) {
+			e.preventDefault();
+
+			// Remove this block and move to previous block
+			if (blockIndex > 0) {
+				const prevBlockLength = blocks[blockIndex - 1].length;
+				blocks.splice(blockIndex, 1);
+				setBlocks(blocks);
+				editingBlockIndex = blockIndex - 1;
+				cursorPosition = prevBlockLength;
+			} else {
+				// If first block, move to next block instead
+				blocks.splice(blockIndex, 1);
+				setBlocks(blocks);
+				editingBlockIndex = 0;
+				cursorPosition = 0;
+			}
+			oninput?.(e);
 			return;
 		}
 
@@ -405,8 +436,13 @@
 			blocks[blockIndex - 1] = `${prevBlock}\n\n${currentBlock}`;
 			blocks.splice(blockIndex, 1);
 			setBlocks(blocks);
-			editingBlockIndex = blockIndex - 1;
-			cursorPosition = mergedPosition;
+			
+			// Need to wait for the DOM to update before switching blocks
+			setTimeout(() => {
+				editingBlockIndex = blockIndex - 1;
+				cursorPosition = mergedPosition;
+			}, 0);
+			
 			oninput?.(e);
 			return;
 		}

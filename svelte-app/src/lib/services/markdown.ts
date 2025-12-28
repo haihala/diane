@@ -23,6 +23,7 @@ export interface Token {
 	href?: string; // For links
 	entryId?: string; // For wiki links - the target entry ID
 	language?: string; // For code blocks
+	listType?: 'bullet' | 'ordered'; // For list items - type of list
 }
 
 export interface ParseResult {
@@ -194,6 +195,10 @@ export class MarkdownTokenizer {
 		const indent = match[1];
 		const content = match[2];
 		const level = Math.floor(indent.length / 2); // 2 spaces = 1 level, 4 spaces = 2 levels
+		
+		// Determine if it's a numbered list or bullet list
+		const listMarker = this.text.slice(this.pos + indent.length).match(/^([-*+]|\d+\.)/)?.[0];
+		const listType = listMarker && /\d+\./.test(listMarker) ? 'ordered' : 'bullet';
 
 		this.tokens.push({
 			type: 'list-item',
@@ -201,7 +206,8 @@ export class MarkdownTokenizer {
 			content,
 			start,
 			end: start + match[0].length,
-			level
+			level,
+			listType
 		});
 
 		this.advance(match[0].length);
@@ -473,6 +479,8 @@ export class MarkdownParser {
 	render(): string {
 		let html = '';
 		let inParagraph = false;
+		let inList = false;
+		let currentListType: 'bullet' | 'ordered' | null = null;
 
 		for (let i = 0; i < this.tokens.length; i++) {
 			const token = this.tokens[i];
@@ -490,6 +498,34 @@ export class MarkdownParser {
 			}
 
 			const isCursorToken = this.cursorPos >= token.start && this.cursorPos <= effectiveEnd;
+
+			// Handle list grouping
+			if (token.type === 'list-item') {
+				// Check if we need to start a new list or close previous list
+				if (!inList) {
+					// Close paragraph if open
+					if (inParagraph) {
+						html += '</p>';
+						inParagraph = false;
+					}
+					// Start new list
+					currentListType = token.listType ?? 'bullet';
+					html += currentListType === 'ordered' ? '<ol>' : '<ul>';
+					inList = true;
+				} else if (currentListType !== token.listType) {
+					// List type changed, close previous list and start new one
+					html += currentListType === 'ordered' ? '</ol>' : '</ul>';
+					currentListType = token.listType ?? 'bullet';
+					html += currentListType === 'ordered' ? '<ol>' : '<ul>';
+				}
+			} else {
+				// Not a list item, close list if open
+				if (inList) {
+					html += currentListType === 'ordered' ? '</ol>' : '</ul>';
+					inList = false;
+					currentListType = null;
+				}
+			}
 
 			if (isBlockLevel && inParagraph) {
 				html += '</p>';
@@ -530,6 +566,11 @@ export class MarkdownParser {
 			} else {
 				html += this.renderToken(token);
 			}
+		}
+
+		// Close any open list
+		if (inList) {
+			html += currentListType === 'ordered' ? '</ol>' : '</ul>';
 		}
 
 		if (inParagraph) {
