@@ -9,9 +9,10 @@
 		position: { x: number; y: number };
 		onSelect: (tag: string) => void;
 		onClose: () => void;
+		allowCreate?: boolean;
 	}
 
-	const { searchTerm, position, onSelect, onClose }: Props = $props();
+	const { searchTerm, position, onSelect, onClose, allowCreate = true }: Props = $props();
 
 	let availableTags = $state<string[]>([]);
 	let selectedIndex = $state(0);
@@ -98,7 +99,7 @@
 			message={searchTerm.trim() ? `No existing tags match "${searchTerm}"` : 'No tags yet'}
 		>
 			{#snippet action()}
-				{#if searchTerm.trim()}
+				{#if allowCreate && searchTerm.trim()}
 					<div class="create-hint">
 						Press <kbd>Enter</kbd> to add <Tag tag={searchTerm.trim()} size="small" />
 					</div>

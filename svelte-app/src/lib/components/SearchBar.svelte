@@ -6,8 +6,10 @@
 	import EntryModal from './EntryModal.svelte';
 	import Icon from './Icon.svelte';
 	import SearchResultOption from './SearchResultOption.svelte';
+	import TagSelectorPopover from './TagSelectorPopover.svelte';
 	import {
 		searchEntries,
+		searchEntriesByTag,
 		extractEntryIdsFromContent,
 		loadEntryTitles
 	} from '$lib/services/entries';
@@ -31,6 +33,15 @@
 	let searchResults = $state<Entry[]>([]);
 	let entryTitles = $state<Map<string, string>>(new Map());
 
+	// Tag selector popover state
+	let showTagPopover = $state(false);
+	let tagPopoverPosition = $state({ x: 0, y: 0 });
+	let tagSearchTerm = $state('');
+	let tagStartPos = $state(0);
+	let tagSelectorRef:
+		| { handleExternalKeydown: (e: KeyboardEvent) => void; hasAvailableTags: () => boolean }
+		| undefined = $state();
+
 	// Auto-focus on mount if requested
 	onMount(() => {
 		if (autoFocus && inputElement) {
@@ -38,20 +49,120 @@
 		}
 	});
 
+	// Check if # was just typed to trigger tag selector
+	function checkForTagTrigger(input: HTMLInputElement): void {
+		const text = input.value;
+		const cursorPos = input.selectionStart ?? 0;
+
+		// Look backwards from cursor to find #
+		const textBeforeCursor = text.substring(0, cursorPos);
+
+		// Find the last # that's either at the start or preceded by whitespace
+		let lastHashPos = -1;
+		for (let i = textBeforeCursor.length - 1; i >= 0; i--) {
+			if (textBeforeCursor[i] === '#') {
+				// Check if it's at the start or preceded by whitespace
+				if (i === 0 || /\s/.test(textBeforeCursor[i - 1])) {
+					lastHashPos = i;
+					break;
+				}
+			} else if (/\s/.test(textBeforeCursor[i])) {
+				// Stop at whitespace if we haven't found a # yet
+				break;
+			}
+		}
+
+		// Check if we have a valid # trigger
+		if (lastHashPos !== -1) {
+			const textAfterHash = textBeforeCursor.substring(lastHashPos + 1);
+
+			// Only show popover if we have # followed by word characters (no spaces)
+			if (!textAfterHash.includes(' ') && /^\w*$/.test(textAfterHash)) {
+				tagSearchTerm = textAfterHash;
+				tagStartPos = lastHashPos;
+
+				// Calculate popover position
+				const rect = input.getBoundingClientRect();
+				tagPopoverPosition = {
+					x: rect.left,
+					y: rect.bottom + 5
+				};
+
+				showTagPopover = true;
+				return;
+			}
+		}
+
+		// Hide popover if no valid # trigger found
+		showTagPopover = false;
+	}
+
+	// Handle tag selection from popover
+	function handleTagSelect(tag: string): void {
+		if (!inputElement) return;
+
+		// Replace # and search term with the selected tag
+		const beforeTag = inputValue.substring(0, tagStartPos);
+		const cursorPos = inputElement.selectionStart ?? 0;
+		const afterCursor = inputValue.substring(cursorPos);
+
+		const tagText = `#${tag}`;
+
+		inputValue = beforeTag + tagText + afterCursor;
+
+		// Move cursor after the inserted tag
+		const newCursorPos = tagStartPos + tagText.length;
+
+		// Update input and trigger search
+		setTimeout(() => {
+			if (inputElement) {
+				inputElement.focus();
+				inputElement.selectionStart = inputElement.selectionEnd = newCursorPos;
+			}
+		}, 0);
+
+		showTagPopover = false;
+	}
+
+	// Close tag popover
+	function handleTagPopoverClose(): void {
+		showTagPopover = false;
+	}
+
 	// Search entries when input changes
 	$effect(() => {
 		const searchTerm = inputValue.trim();
 		if (searchTerm) {
-			void searchEntries(searchTerm)
-				.then((results) => {
-					searchResults = results;
-					// Load titles for all entry IDs found in search results
-					void loadTitlesForResults(results);
-				})
-				.catch((err) => {
-					console.error('Search failed:', err);
+			// Check if searching by tag (starts with #)
+			if (searchTerm.startsWith('#')) {
+				const tag = searchTerm.substring(1).trim();
+				if (tag) {
+					void searchEntriesByTag(tag)
+						.then((results) => {
+							searchResults = results;
+							// Load titles for all entry IDs found in search results
+							void loadTitlesForResults(results);
+						})
+						.catch((err) => {
+							console.error('Tag search failed:', err);
+							searchResults = [];
+						});
+				} else {
 					searchResults = [];
-				});
+					entryTitles = new Map();
+				}
+			} else {
+				void searchEntries(searchTerm)
+					.then((results) => {
+						searchResults = results;
+						// Load titles for all entry IDs found in search results
+						void loadTitlesForResults(results);
+					})
+					.catch((err) => {
+						console.error('Search failed:', err);
+						searchResults = [];
+					});
+			}
 		} else {
 			searchResults = [];
 			entryTitles = new Map();
@@ -126,6 +237,11 @@
 		isFocused = true;
 	}
 
+	function handleInput(e: Event): void {
+		const target = e.target as HTMLInputElement;
+		checkForTagTrigger(target);
+	}
+
 	function handleBlur(e: FocusEvent): void {
 		// Delay blur to allow clicks on popover items
 		const relatedTarget = e.relatedTarget as HTMLElement;
@@ -134,10 +250,44 @@
 		}
 		setTimeout(() => {
 			isFocused = false;
+			showTagPopover = false;
 		}, 150);
 	}
 
 	function handleKeydown(e: KeyboardEvent): void {
+		// If tag popover is open, handle Enter specially
+		if (showTagPopover && e.key === 'Enter') {
+			e.preventDefault();
+			// If there are available tags, let the popover handle selection
+			const hasMatches = tagSelectorRef?.hasAvailableTags?.() ?? false;
+			if (hasMatches) {
+				// Let the tag selector handle the Enter key
+				if (tagSelectorRef?.handleExternalKeydown) {
+					tagSelectorRef.handleExternalKeydown(e);
+				}
+			}
+			// If no matches, don't create a new tag - just close the popover
+			showTagPopover = false;
+			return;
+		}
+
+		// If tag popover is open, let it handle arrow keys
+		if (showTagPopover && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+			e.preventDefault();
+			if (tagSelectorRef?.handleExternalKeydown) {
+				tagSelectorRef.handleExternalKeydown(e);
+			}
+			return;
+		}
+
+		// Handle Escape to close tag popover
+		if (e.key === 'Escape' && showTagPopover) {
+			e.preventDefault();
+			showTagPopover = false;
+			return;
+		}
+
+		// Original key handlers for search results
 		switch (e.key) {
 			case 'ArrowDown':
 				e.preventDefault();
@@ -218,6 +368,7 @@
 				onfocus={handleFocus}
 				onblur={handleBlur}
 				onkeydown={handleKeydown}
+				oninput={handleInput}
 				aria-label="Search input"
 				aria-controls="search-popover"
 				aria-activedescendant={`option-${selectedIndex}`}
@@ -234,6 +385,7 @@
 		bind:this={popoverElement}
 		id="search-popover"
 		class="popover"
+		class:hidden={showTagPopover}
 		role="listbox"
 		aria-label="Search options"
 	>
@@ -256,6 +408,19 @@
 	onSave={handleModalSave}
 	initialTitle={inputValue.trim()}
 />
+
+{#if showTagPopover}
+	<div style="position: fixed; z-index: 10000; pointer-events: auto;">
+		<TagSelectorPopover
+			bind:this={tagSelectorRef}
+			searchTerm={tagSearchTerm}
+			position={tagPopoverPosition}
+			onSelect={handleTagSelect}
+			onClose={handleTagPopoverClose}
+			allowCreate={false}
+		/>
+	</div>
+{/if}
 
 <style>
 	.search-container {
@@ -344,6 +509,10 @@
 		z-index: var(--z-dropdown);
 		max-height: 400px;
 		overflow-y: auto;
+	}
+
+	.popover.hidden {
+		display: none;
 	}
 
 	/* Mobile optimization */

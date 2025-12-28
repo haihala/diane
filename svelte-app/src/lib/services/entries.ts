@@ -135,6 +135,42 @@ export async function searchEntries(searchTerm: string): Promise<Entry[]> {
 }
 
 /**
+ * Searches entries by tag
+ */
+export async function searchEntriesByTag(tag: string): Promise<Entry[]> {
+	const currentUser = auth.currentUser;
+	if (!currentUser) {
+		throw new Error('User must be authenticated to search entries');
+	}
+
+	// Use effective user ID (respects impersonation)
+	const effectiveUserId = getEffectiveUserId();
+
+	const constraints: QueryConstraint[] = [
+		where('userId', '==', effectiveUserId),
+		where('tags', 'array-contains', tag),
+		orderBy('createdAt', 'desc')
+	];
+
+	const q = query(collection(db, ENTRIES_COLLECTION), ...constraints);
+	const snapshot = await getDocs(q);
+
+	return snapshot.docs.map((doc) => {
+		const data = doc.data() as EntryDocument;
+		return {
+			id: doc.id,
+			userId: data.userId,
+			title: data.title,
+			content: data.content,
+			tags: data.tags ?? [],
+			wikiIds: data.wikiIds ?? [],
+			createdAt: data.createdAt.toDate(),
+			updatedAt: data.updatedAt.toDate()
+		} as Entry;
+	});
+}
+
+/**
  * Gets all entries ordered by creation date
  */
 export async function getAllEntries(): Promise<Entry[]> {
