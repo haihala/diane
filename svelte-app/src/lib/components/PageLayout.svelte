@@ -1,14 +1,7 @@
 <script lang="ts">
-	import { user, signOut } from '$lib/services/auth';
+	import { user } from '$lib/services/auth';
 	import Icon from './Icon.svelte';
-
-	async function handleSignOut(): Promise<void> {
-		try {
-			await signOut();
-		} catch (error) {
-			console.error('Error signing out:', error);
-		}
-	}
+	import UserInfo from './UserInfo.svelte';
 
 	function goToManagement(): void {
 		window.location.href = '/management';
@@ -18,10 +11,7 @@
 <div class="page-container">
 	<div class="top-bar">
 		{#if $user}
-			<div class="user-section">
-				<span class="user-email">{$user.email}</span>
-				<button class="sign-out-button" onclick={handleSignOut}> Sign Out </button>
-			</div>
+			<UserInfo />
 			<button class="settings-button" onclick={goToManagement} title="Management">
 				<Icon name="settings" size={20} />
 			</button>
@@ -107,38 +97,6 @@
 		align-items: center;
 	}
 
-	.user-section {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-		padding: var(--spacing-sm) var(--spacing-md);
-		background: var(--color-surface);
-		border-radius: var(--radius-lg);
-		border: 1px solid var(--color-border);
-	}
-
-	.user-email {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-	}
-
-	.sign-out-button {
-		padding: var(--spacing-xs) var(--spacing-md);
-		background: transparent;
-		color: var(--color-text-secondary);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	.sign-out-button:hover {
-		background: var(--color-bg-secondary);
-		color: var(--color-text);
-		border-color: var(--color-primary);
-	}
-
 	.logo {
 		display: inline-block;
 	}
@@ -181,14 +139,6 @@
 
 		.logo-text {
 			font-size: var(--font-size-3xl);
-		}
-
-		.user-section {
-			padding: var(--spacing-xs) var(--spacing-sm);
-		}
-
-		.user-email {
-			display: none;
 		}
 	}
 
