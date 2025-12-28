@@ -75,36 +75,45 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for complete development setup instructions
 **Quick start**:
 
 1. Install dependencies:
-   ```sh
-   cd svelte-app
-   npm install
-   ```
+
+```sh
+cd svelte-app
+npm install
+```
 
 2. Start Firebase emulators (required):
-   ```sh
-   firebase emulators:start
-   ```
+
+```sh
+firebase emulators:start --import firebase-export
+```
+
+The export contains some seed data, including two users, Alice and Bob. Bob has
+no entries, while Alice has a few
 
 3. Start dev server (in a new terminal):
-   ```sh
-   cd svelte-app
-   npm run dev
-   ```
+
+```sh
+cd svelte-app
+npm run dev
+```
 
 4. Before committing, validate:
-   ```sh
-   npm run validate
-   ```
+
+```sh
+npm run validate
+```
 
 ### Deployment
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for complete production deployment instructions including:
+
 - Firebase web app registration
 - Environment variable configuration
 - GitHub Actions setup
 - Security best practices
 
 **Quick deployment**:
+
 ```sh
 firebase deploy
 ```
@@ -121,6 +130,7 @@ firebase deploy
 ## Current Status
 
 This project is in early development. Current features:
+
 - Basic UI with search bar and entry creation
 - Firebase Firestore integration for data persistence
 - Markdown support for entries
