@@ -24,6 +24,13 @@
 	let editingBlockIndex: number | null = $state(null);
 	let cursorPosition: number = $state(0);
 	const textareaElements: { [key: number]: HTMLTextAreaElement } = {};
+
+	// Internal block array - this is the source of truth for editing
+	let blocks = $state<string[]>(['']);
+
+	// Track if we're currently in an editing session to prevent automatic block splitting
+	let isInternalEdit = $state(false);
+
 	// Wiki link popover state
 	let showLinkPopover = $state(false);
 	let linkPopoverPosition = $state({ x: 0, y: 0 });
@@ -33,6 +40,22 @@
 
 	// Store for loaded entry titles
 	let entryTitles = $state<Map<string, string>>(new Map());
+
+	// Sync blocks from value prop when it changes externally (not during editing)
+	$effect(() => {
+		if (!isInternalEdit) {
+			const newBlocks = value ? value.split(/\n\n/) : [''];
+			blocks = newBlocks.length === 0 ? [''] : newBlocks;
+		}
+	});
+
+	// Sync value prop from blocks when blocks change
+	function syncValueFromBlocks(): void {
+		const newValue = blocks.join('\n\n');
+		if (newValue !== value) {
+			value = newValue;
+		}
+	}
 
 	// Load entry titles when content changes
 	$effect(() => {
@@ -54,27 +77,13 @@
 		}
 	});
 
-	// Split content into blocks (paragraphs separated by double newlines)
-	function getBlocks(): string[] {
-		if (!value) return [''];
-		// Split on double newlines, but keep empty blocks
-		const blocks = value.split(/\n\n/);
-		return blocks.length === 0 ? [''] : blocks;
-	}
-
 	// Create rendered blocks as a derived value that depends on content and loaded titles
-	// This ensures blocks re-render when content changes or titles are loaded
 	const renderedBlocks = $derived(
-		getBlocks().map((block) => {
+		blocks.map((block) => {
 			// This will automatically track entryTitles dependency
 			return getRenderedBlockInternal(block);
 		})
 	);
-
-	// Reconstruct value from blocks
-	function setBlocks(blocks: string[]): void {
-		value = blocks.join('\n\n');
-	}
 
 	// Get rendered HTML for a block (internal helper)
 	function getRenderedBlockInternal(blockContent: string): string {
@@ -112,9 +121,8 @@
 		const target = e.target as HTMLTextAreaElement;
 		const newText = target.value;
 
-		const blocks = getBlocks();
 		blocks[blockIndex] = newText;
-		setBlocks(blocks);
+		syncValueFromBlocks();
 
 		// Save cursor position
 		cursorPosition = target.selectionStart || 0;
@@ -138,6 +146,7 @@
 			return;
 		}
 
+		isInternalEdit = true;
 		editingBlockIndex = blockIndex;
 		cursorPosition = 0;
 	}
@@ -181,7 +190,6 @@
 	function handleLinkSelect(entry: Entry): void {
 		if (editingBlockIndex === null) return;
 
-		const blocks = getBlocks();
 		const currentBlock = blocks[editingBlockIndex];
 		const textarea = textareaElements[editingBlockIndex];
 
@@ -201,7 +209,7 @@
 
 		const newBlock = beforeLink + wikiLink + afterCursor;
 		blocks[editingBlockIndex] = newBlock;
-		setBlocks(blocks);
+		syncValueFromBlocks();
 
 		// Move cursor after the inserted link
 		cursorPosition = linkStartPos + wikiLink.length;
@@ -233,8 +241,7 @@
 	// Handle blur on textarea
 	function handleBlockBlur(): void {
 		// Clean up empty blocks when leaving
-		const blocks = getBlocks();
-		const cleanedBlocks = blocks.filter((block) => block.trim() !== '');
+		const cleanedBlocks = blocks.filter((block: string) => block.trim() !== '');
 
 		// Ensure at least one block exists
 		if (cleanedBlocks.length === 0) {
@@ -242,19 +249,20 @@
 		}
 
 		if (cleanedBlocks.length !== blocks.length) {
-			setBlocks(cleanedBlocks);
+			blocks = cleanedBlocks;
+			syncValueFromBlocks();
 		}
 
 		// Close link popover if open
 		showLinkPopover = false;
 
 		editingBlockIndex = null;
+		isInternalEdit = false;
 	}
 
 	// Handle keyboard navigation in textarea
 	function handleKeyDown(blockIndex: number, e: KeyboardEvent): void {
 		const target = e.target as HTMLTextAreaElement;
-		const blocks = getBlocks();
 		const cursorPos = target.selectionStart || 0;
 		const cursorEnd = target.selectionEnd || 0;
 		const text = target.value;
@@ -298,13 +306,13 @@
 			if (blockIndex > 0) {
 				const prevBlockLength = blocks[blockIndex - 1].length;
 				blocks.splice(blockIndex, 1);
-				setBlocks(blocks);
+				syncValueFromBlocks();
 				editingBlockIndex = blockIndex - 1;
 				cursorPosition = prevBlockLength;
 			} else {
 				// If first block, move to next block instead
 				blocks.splice(blockIndex, 1);
-				setBlocks(blocks);
+				syncValueFromBlocks();
 				editingBlockIndex = 0;
 				cursorPosition = 0;
 			}
@@ -337,7 +345,7 @@
 					lines[currentLineIndex] = newLine;
 					const newValue = lines.join('\n');
 					blocks[blockIndex] = newValue;
-					setBlocks(blocks);
+					syncValueFromBlocks();
 
 					// Adjust cursor position
 					const newCursorPos = Math.max(lineStartPos, cursorPos - removedSpaces);
@@ -351,7 +359,7 @@
 				lines[currentLineIndex] = newLine;
 				const newValue = lines.join('\n');
 				blocks[blockIndex] = newValue;
-				setBlocks(blocks);
+				syncValueFromBlocks();
 
 				// Adjust cursor position
 				setTimeout(() => {
@@ -383,7 +391,7 @@
 
 					blocks[blockIndex] = beforeList;
 					blocks.splice(blockIndex + 1, 0, afterCursor);
-					setBlocks(blocks);
+					syncValueFromBlocks();
 					editingBlockIndex = blockIndex + 1;
 					cursorPosition = 0;
 					oninput?.(e);
@@ -395,7 +403,7 @@
 					const newText = `${beforeCursor}\n${prefix}${afterCursor}`;
 
 					blocks[blockIndex] = newText;
-					setBlocks(blocks);
+					syncValueFromBlocks();
 					cursorPosition = cursorPos + 1 + prefix.length;
 
 					// Manually update the textarea since we need to trigger the effect
@@ -418,7 +426,7 @@
 
 				blocks[blockIndex] = beforeCursor;
 				blocks.splice(blockIndex + 1, 0, afterCursor);
-				setBlocks(blocks);
+				syncValueFromBlocks();
 				editingBlockIndex = blockIndex + 1;
 				cursorPosition = 0;
 				oninput?.(e);
@@ -427,7 +435,7 @@
 		}
 
 		// Handle Backspace at very start of block - merge with previous
-		if (e.key === 'Backspace' && cursorPos === 0 && blockIndex > 0) {
+		if (e.key === 'Backspace' && cursorPos === 0 && !hasSelection && blockIndex > 0) {
 			e.preventDefault();
 			const prevBlock = blocks[blockIndex - 1];
 			const currentBlock = blocks[blockIndex];
@@ -435,14 +443,12 @@
 
 			blocks[blockIndex - 1] = `${prevBlock}\n\n${currentBlock}`;
 			blocks.splice(blockIndex, 1);
-			setBlocks(blocks);
-			
-			// Need to wait for the DOM to update before switching blocks
-			setTimeout(() => {
-				editingBlockIndex = blockIndex - 1;
-				cursorPosition = mergedPosition;
-			}, 0);
-			
+			syncValueFromBlocks();
+
+			// Switch to the merged block immediately
+			editingBlockIndex = blockIndex - 1;
+			cursorPosition = mergedPosition;
+
 			oninput?.(e);
 			return;
 		}
@@ -522,7 +528,7 @@
 		{/if}
 
 		{#if value.trim() || editingBlockIndex !== null}
-			{#each getBlocks() as block, i (i)}
+			{#each blocks as block, i (i)}
 				<div class="block-container">
 					{#if editingBlockIndex === i}
 						<!-- Editing mode: show textarea -->

@@ -195,7 +195,7 @@ export class MarkdownTokenizer {
 		const indent = match[1];
 		const content = match[2];
 		const level = Math.floor(indent.length / 2); // 2 spaces = 1 level, 4 spaces = 2 levels
-		
+
 		// Determine if it's a numbered list or bullet list
 		const listMarker = this.text.slice(this.pos + indent.length).match(/^([-*+]|\d+\.)/)?.[0];
 		const listType = listMarker && /\d+\./.test(listMarker) ? 'ordered' : 'bullet';

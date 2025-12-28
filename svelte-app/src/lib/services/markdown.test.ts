@@ -462,7 +462,7 @@ describe('MarkdownParser', () => {
 			expect(html).toContain('>third</li>');
 			expect(html).toContain('</ul>');
 			// Should only have one <ul> tag
-			expect((html.match(/<ul>/g) || []).length).toBe(1);
+			expect((html.match(/<ul>/g) ?? []).length).toBe(1);
 		});
 
 		it('should separate bullet and numbered lists', () => {
