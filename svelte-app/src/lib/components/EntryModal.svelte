@@ -85,13 +85,21 @@
 			}
 		}
 
-		title = '';
-		content = '';
+		// Reset state and call onClose
 		isSaving = false;
 		error = null;
 		hasUnsavedChanges = false;
 
 		onClose();
+
+		// Clear the form fields after a delay to avoid visual glitch
+		// The effect will handle resetting these when the modal reopens
+		setTimeout(() => {
+			if (!isOpen) {
+				title = '';
+				content = '';
+			}
+		}, 100);
 	}
 
 	async function handleSave(): Promise<void> {
@@ -129,7 +137,15 @@
 	function handleKeydown(event: KeyboardEvent): void {
 		if (event.key === 'Escape') {
 			event.preventDefault();
-			void handleClose();
+			// In edit mode, blur the active element instead of closing
+			if (entry) {
+				if (document.activeElement instanceof HTMLElement) {
+					document.activeElement.blur();
+				}
+			} else {
+				// In create mode, close the modal
+				void handleClose();
+			}
 		}
 	}
 
