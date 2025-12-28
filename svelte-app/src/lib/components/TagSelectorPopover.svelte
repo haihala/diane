@@ -1,6 +1,7 @@
 <script lang="ts">
-	import Icon from './Icon.svelte';
 	import Tag from './Tag.svelte';
+	import EmptyState from './EmptyState.svelte';
+	import PopoverOption from './PopoverOption.svelte';
 	import { getAllEntries } from '$lib/services/entries';
 
 	interface Props {
@@ -92,41 +93,31 @@
 	style="left: {position.x}px; top: {position.y}px"
 >
 	{#if availableTags.length === 0}
-		<div class="no-results">
-			<div class="no-results-icon">
-				<Icon name="search" size={24} />
-			</div>
-			<div class="no-results-text">
+		<EmptyState
+			icon="search"
+			message={searchTerm.trim() ? `No existing tags match "${searchTerm}"` : 'No tags yet'}
+		>
+			{#snippet action()}
 				{#if searchTerm.trim()}
-					No existing tags match "{searchTerm}"
-				{:else}
-					No tags yet
+					<div class="create-hint">
+						Press <kbd>Enter</kbd> to add <Tag tag={searchTerm.trim()} size="small" />
+					</div>
 				{/if}
-			</div>
-			{#if searchTerm.trim()}
-				<div class="create-hint">
-					Press <kbd>Enter</kbd> to add <Tag tag={searchTerm.trim()} size="small" />
-				</div>
-			{/if}
-		</div>
+			{/snippet}
+		</EmptyState>
 	{:else}
 		{#each availableTags as tag, index (tag)}
-			<button
-				type="button"
-				class="popover-option"
-				class:selected={index === selectedIndex}
-				role="option"
-				aria-selected={index === selectedIndex}
-				onmousedown={(e) => e.preventDefault()}
+			<PopoverOption
+				icon="grid"
+				title=""
+				variant="default"
+				isSelected={index === selectedIndex}
 				onclick={() => handleOptionClick(tag)}
 			>
-				<div class="option-icon">
-					<Icon name="grid" size={20} />
-				</div>
-				<div class="option-content">
+				{#snippet extras()}
 					<Tag {tag} size="small" />
-				</div>
-			</button>
+				{/snippet}
+			</PopoverOption>
 		{/each}
 	{/if}
 </div>
@@ -146,25 +137,6 @@
 		pointer-events: auto;
 	}
 
-	.no-results {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-xl);
-		text-align: center;
-		gap: var(--spacing-md);
-	}
-
-	.no-results-icon {
-		color: var(--color-text-secondary);
-	}
-
-	.no-results-text {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
-	}
-
 	.create-hint {
 		color: var(--color-text-secondary);
 		font-size: var(--font-size-sm);
@@ -180,52 +152,5 @@
 		border-radius: var(--radius-sm);
 		font-family: monospace;
 		font-size: var(--font-size-xs);
-	}
-
-	.popover-option {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-		padding: var(--spacing-md) var(--spacing-lg);
-		border: none;
-		background: transparent;
-		color: var(--color-text);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-		text-align: left;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.popover-option:last-child {
-		border-bottom: none;
-	}
-
-	.popover-option:hover,
-	.popover-option.selected {
-		background: var(--color-surface-hover);
-	}
-
-	.popover-option.selected {
-		border-left: 3px solid var(--color-primary);
-	}
-
-	.option-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		border-radius: var(--radius-md);
-		background: var(--color-bg-tertiary);
-		color: var(--color-text-secondary);
-		flex-shrink: 0;
-	}
-
-	.option-content {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		align-items: center;
 	}
 </style>

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
-	import Icon from './Icon.svelte';
 	import Tag from './Tag.svelte';
+	import EmptyState from './EmptyState.svelte';
+	import PopoverOption from './PopoverOption.svelte';
 	import {
 		searchEntries,
 		extractEntryIdsFromContent,
@@ -120,42 +121,27 @@
 	style="left: {position.x}px; top: {position.y}px"
 >
 	{#if searchResults.length === 0}
-		<div class="no-results">
-			<div class="no-results-icon">
-				<Icon name="search" size={24} />
-			</div>
-			<div class="no-results-text">No entries found</div>
-		</div>
+		<EmptyState icon="search" message="No entries found" />
 	{:else}
 		{#each searchResults as entry, index (entry.id)}
-			<button
-				type="button"
-				class="popover-option"
-				class:selected={index === selectedIndex}
-				role="option"
-				aria-selected={index === selectedIndex}
-				onmousedown={(e) => e.preventDefault()}
+			<PopoverOption
+				icon="file"
+				title={entry.title}
+				subtitle={entry.content ? getEntryPreview(entry) : undefined}
+				variant="result"
+				isSelected={index === selectedIndex}
 				onclick={() => handleOptionClick(entry)}
 			>
-				<div class="option-icon">
-					<Icon name="file" size={20} />
-				</div>
-				<div class="option-content">
-					<div class="option-title-row">
-						<div class="option-title">{entry.title}</div>
-						{#if entry.tags && entry.tags.length > 0}
-							<div class="option-tags">
-								{#each entry.tags as tag (tag)}
-									<Tag {tag} size="small" />
-								{/each}
-							</div>
-						{/if}
-					</div>
-					{#if entry.content}
-						<div class="option-subtitle">{getEntryPreview(entry)}</div>
+				{#snippet extras()}
+					{#if entry.tags && entry.tags.length > 0}
+						<div class="option-tags">
+							{#each entry.tags as tag (tag)}
+								<Tag {tag} size="small" />
+							{/each}
+						</div>
 					{/if}
-				</div>
-			</button>
+				{/snippet}
+			</PopoverOption>
 		{/each}
 	{/if}
 </div>
@@ -174,105 +160,11 @@
 		overflow-y: auto;
 	}
 
-	.no-results {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: var(--spacing-xl);
-		text-align: center;
-	}
-
-	.no-results-icon {
-		color: var(--color-text-secondary);
-		margin-bottom: var(--spacing-sm);
-	}
-
-	.no-results-text {
-		color: var(--color-text-secondary);
-		font-size: var(--font-size-sm);
-	}
-
-	.popover-option {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-md);
-		padding: var(--spacing-md) var(--spacing-lg);
-		border: none;
-		background: transparent;
-		color: var(--color-text);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-		text-align: left;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.popover-option:last-child {
-		border-bottom: none;
-	}
-
-	.popover-option:hover,
-	.popover-option.selected {
-		background: var(--color-surface-hover);
-	}
-
-	.popover-option.selected {
-		border-left: 3px solid var(--color-primary);
-	}
-
-	.option-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 36px;
-		height: 36px;
-		border-radius: var(--radius-md);
-		background: var(--color-bg-tertiary);
-		color: var(--color-text-secondary);
-		flex-shrink: 0;
-	}
-
-	.option-content {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-xs);
-	}
-
-	.option-title-row {
-		display: flex;
-		align-items: center;
-		gap: var(--spacing-sm);
-		justify-content: space-between;
-		min-width: 0;
-	}
-
-	.option-title {
-		font-size: var(--font-size-md);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-text);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		flex-shrink: 1;
-		min-width: 0;
-	}
-
 	.option-tags {
 		display: flex;
 		gap: var(--spacing-xs);
 		flex-wrap: nowrap;
 		flex-shrink: 0;
 		overflow: hidden;
-	}
-
-	.option-subtitle {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
 	}
 </style>

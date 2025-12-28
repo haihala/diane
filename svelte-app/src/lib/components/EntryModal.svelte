@@ -1,10 +1,10 @@
 <script lang="ts">
-	import Icon from './Icon.svelte';
 	import MarkdownEditor from './MarkdownEditor.svelte';
-	import Tag from './Tag.svelte';
-	import TagSelectorPopover from './TagSelectorPopover.svelte';
+	import ModalHeader from './ModalHeader.svelte';
+	import ModalFooter from './ModalFooter.svelte';
+	import BacklinksList from './BacklinksList.svelte';
+	import TagInput from './TagInput.svelte';
 	import { createEntry, updateEntry, getBacklinks } from '$lib/services/entries';
-	import { extractTagsFromTitle } from '$lib/services/markdown';
 	import type { Entry } from '$lib/types/Entry';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -22,7 +22,7 @@
 	let title = $state('');
 	let content = $state('');
 	let dialogElement: HTMLDialogElement | undefined = $state();
-	let titleInputElement: HTMLInputElement | undefined = $state();
+	let tagInputElement: TagInput | undefined = $state();
 	let markdownEditorElement: MarkdownEditor | undefined = $state();
 	let isSaving = $state(false);
 	let error = $state<string | null>(null);
@@ -30,18 +30,6 @@
 	let backlinks = $state<Entry[]>([]);
 	let isLoadingBacklinks = $state(false);
 	let lastLoadedEntryId = $state<string | undefined>(undefined);
-
-	// Tag selector popover state
-	let showTagPopover = $state(false);
-	let tagPopoverPosition = $state({ x: 0, y: 0 });
-	let tagSearchTerm = $state('');
-	let tagStartPos = $state(0);
-	let tagSelectorRef:
-		| { handleExternalKeydown: (e: KeyboardEvent) => void; hasAvailableTags: () => boolean }
-		| undefined = $state();
-
-	// Derive tags from the current title
-	const currentTags = $derived(extractTagsFromTitle(title).tags);
 
 	// Helper function to reconstruct title with tags
 	function getTitleWithTags(entry: Entry): string {
@@ -68,9 +56,11 @@
 				}
 				// Reset unsaved changes flag
 				hasUnsavedChanges = false;
-				// Focus the title input after modal opens
+				// Focus the tag input after modal opens
 				setTimeout(() => {
-					titleInputElement?.focus();
+					if (tagInputElement && 'focus' in tagInputElement) {
+						(tagInputElement as { focus: () => void }).focus();
+					}
 				}, 0);
 			} else if (!isOpen && dialogElement.open) {
 				dialogElement.close();
@@ -208,8 +198,10 @@
 	}
 
 	function handleNavigateUpFromEditor(): void {
-		// Focus the title input when navigating up from the editor
-		titleInputElement?.focus();
+		// Focus the tag input when navigating up from the editor
+		if (tagInputElement && 'focus' in tagInputElement) {
+			(tagInputElement as { focus: () => void }).focus();
+		}
 	}
 
 	function handleCtrlEnterFromEditor(): void {
@@ -218,41 +210,6 @@
 	}
 
 	function handleTitleKeydown(event: KeyboardEvent): void {
-		// If tag popover is open, handle Enter specially
-		if (showTagPopover && event.key === 'Enter') {
-			event.preventDefault();
-			// If there are available tags, let the popover handle selection
-			const hasMatches = tagSelectorRef?.hasAvailableTags?.() ?? false;
-			if (hasMatches) {
-				// Let the tag selector handle the Enter key
-				if (tagSelectorRef?.handleExternalKeydown) {
-					tagSelectorRef.handleExternalKeydown(event);
-				}
-			} else {
-				// No matches, create a new tag with the search term
-				if (tagSearchTerm.trim()) {
-					handleTagSelect(tagSearchTerm.trim());
-				}
-			}
-			return;
-		}
-
-		// If tag popover is open, let it handle arrow keys
-		if (showTagPopover && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
-			event.preventDefault();
-			if (tagSelectorRef?.handleExternalKeydown) {
-				tagSelectorRef.handleExternalKeydown(event);
-			}
-			return;
-		}
-
-		// Handle Escape to close tag popover
-		if (event.key === 'Escape' && showTagPopover) {
-			event.preventDefault();
-			showTagPopover = false;
-			return;
-		}
-
 		if (event.key === 'Enter' && event.ctrlKey) {
 			event.preventDefault();
 			void handleSave();
@@ -265,91 +222,9 @@
 		}
 	}
 
-	function handleTitleInput(event: Event): void {
-		const target = event.target as HTMLInputElement;
-		checkForTagTrigger(target);
+	function handleTitleInput(newTitle: string): void {
+		title = newTitle;
 		handleInput();
-	}
-
-	// Check if # was just typed to trigger tag selector
-	function checkForTagTrigger(input: HTMLInputElement): void {
-		const text = input.value;
-		const cursorPos = input.selectionStart ?? 0;
-
-		// Look backwards from cursor to find #
-		const textBeforeCursor = text.substring(0, cursorPos);
-
-		// Find the last # that's either at the start or preceded by whitespace
-		let lastHashPos = -1;
-		for (let i = textBeforeCursor.length - 1; i >= 0; i--) {
-			if (textBeforeCursor[i] === '#') {
-				// Check if it's at the start or preceded by whitespace
-				if (i === 0 || /\s/.test(textBeforeCursor[i - 1])) {
-					lastHashPos = i;
-					break;
-				}
-			} else if (/\s/.test(textBeforeCursor[i])) {
-				// Stop at whitespace if we haven't found a # yet
-				break;
-			}
-		}
-
-		// Check if we have a valid # trigger
-		if (lastHashPos !== -1) {
-			const textAfterHash = textBeforeCursor.substring(lastHashPos + 1);
-
-			// Only show popover if we have # followed by word characters (no spaces)
-			if (!textAfterHash.includes(' ') && /^\w*$/.test(textAfterHash)) {
-				tagSearchTerm = textAfterHash;
-				tagStartPos = lastHashPos;
-
-				// Calculate popover position
-				const rect = input.getBoundingClientRect();
-				tagPopoverPosition = {
-					x: rect.left,
-					y: rect.bottom + 5
-				};
-
-				showTagPopover = true;
-				return;
-			}
-		}
-
-		// Hide popover if no valid # trigger found
-		showTagPopover = false;
-	}
-
-	// Handle tag selection from popover
-	function handleTagSelect(tag: string): void {
-		if (!titleInputElement) return;
-
-		// Replace # and search term with the selected tag
-		const beforeTag = title.substring(0, tagStartPos);
-		const cursorPos = titleInputElement.selectionStart ?? 0;
-		const afterCursor = title.substring(cursorPos);
-
-		const tagText = `#${tag}`;
-
-		title = beforeTag + tagText + afterCursor;
-
-		// Move cursor after the inserted tag
-		const newCursorPos = tagStartPos + tagText.length;
-
-		// Update input
-		setTimeout(() => {
-			if (titleInputElement) {
-				titleInputElement.focus();
-				titleInputElement.selectionStart = titleInputElement.selectionEnd = newCursorPos;
-			}
-		}, 0);
-
-		showTagPopover = false;
-		handleInput();
-	}
-
-	// Close tag popover
-	function handleTagPopoverClose(): void {
-		showTagPopover = false;
 	}
 
 	async function handleBacklinkClick(backlinkEntry: Entry): Promise<void> {
@@ -392,45 +267,20 @@
 	aria-labelledby="modal-title"
 >
 	<div class="modal-content" role="document">
-		<header class="modal-header">
-			<h2 id="modal-title" class="modal-title">{entry ? 'Edit Entry' : 'New Entry'}</h2>
-			<button
-				type="button"
-				class="close-button"
-				onclick={() => void handleClose()}
-				aria-label="Close dialog"
-			>
-				<Icon name="x" size={24} />
-			</button>
-		</header>
+		<ModalHeader title={entry ? 'Edit Entry' : 'New Entry'} onClose={() => void handleClose()} />
 
 		<div class="modal-body">
 			{#if error}
 				<div class="error-message">{error}</div>
 			{/if}
 
-			<div class="form-group">
-				<label for="entry-title" class="form-label">Title</label>
-				<input
-					bind:this={titleInputElement}
-					id="entry-title"
-					type="text"
-					class="form-input"
-					placeholder="Entry title..."
-					bind:value={title}
-					oninput={handleTitleInput}
-					onkeydown={handleTitleKeydown}
-					disabled={isSaving}
-				/>
-			</div>
-
-			{#if currentTags.length > 0}
-				<div class="tags-display">
-					{#each currentTags as tag (tag)}
-						<Tag {tag} />
-					{/each}
-				</div>
-			{/if}
+			<TagInput
+				bind:this={tagInputElement}
+				bind:value={title}
+				oninput={handleTitleInput}
+				onkeydown={handleTitleKeydown}
+				disabled={isSaving}
+			/>
 
 			<div class="form-group">
 				<label for="entry-content" class="form-label">Content</label>
@@ -446,71 +296,22 @@
 				/>
 			</div>
 
-			{#if entry && (isLoadingBacklinks || backlinks.length > 0)}
-				<div class="backlinks-section">
-					<h3 class="backlinks-title">Backlinks</h3>
-					{#if isLoadingBacklinks}
-						<p class="backlinks-empty">Loading backlinks...</p>
-					{:else}
-						<ul class="backlinks-list">
-							{#each backlinks as backlink (backlink.id)}
-								<li class="backlink-item">
-									<button
-										type="button"
-										class="backlink-button"
-										onclick={() => void handleBacklinkClick(backlink)}
-									>
-										{backlink.title}
-									</button>
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</div>
-			{/if}
-		</div>
-
-		<footer class="modal-footer" class:footer-edit-mode={entry}>
 			{#if entry}
-				<!-- Edit mode: show saving indicator if saving -->
-				<div class="saving-indicator">
-					{#if isSaving}
-						<span class="saving-text">Saving...</span>
-					{/if}
-				</div>
-			{:else}
-				<!-- Create mode: show cancel and save buttons -->
-				<button
-					type="button"
-					class="button button-secondary"
-					onclick={() => void handleClose()}
-					disabled={isSaving}
-				>
-					Cancel
-				</button>
-				<button
-					type="button"
-					class="button button-primary"
-					onclick={handleSave}
-					disabled={isSaving}
-				>
-					{isSaving ? 'Saving...' : 'Save Entry'}
-				</button>
+				<BacklinksList
+					{backlinks}
+					isLoading={isLoadingBacklinks}
+					onBacklinkClick={handleBacklinkClick}
+				/>
 			{/if}
-		</footer>
-	</div>
-
-	{#if showTagPopover}
-		<div style="position: fixed; z-index: 10000; pointer-events: auto;">
-			<TagSelectorPopover
-				bind:this={tagSelectorRef}
-				searchTerm={tagSearchTerm}
-				position={tagPopoverPosition}
-				onSelect={handleTagSelect}
-				onClose={handleTagPopoverClose}
-			/>
 		</div>
-	{/if}
+
+		<ModalFooter
+			mode={entry ? 'edit' : 'create'}
+			{isSaving}
+			onCancel={() => void handleClose()}
+			onSave={handleSave}
+		/>
+	</div>
 </dialog>
 
 <style>
@@ -546,40 +347,6 @@
 		height: 100%;
 	}
 
-	.modal-header {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: var(--spacing-lg);
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.modal-title {
-		font-size: var(--font-size-2xl);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-text);
-		margin: 0;
-	}
-
-	.close-button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 40px;
-		height: 40px;
-		border: none;
-		background: transparent;
-		color: var(--color-text-secondary);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.close-button:hover {
-		background: var(--color-surface-hover);
-		color: var(--color-text);
-	}
-
 	.modal-body {
 		flex: 1;
 		padding: var(--spacing-lg);
@@ -612,155 +379,6 @@
 		margin-bottom: var(--spacing-sm);
 	}
 
-	.form-input {
-		width: 100%;
-		padding: var(--spacing-md);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		background: var(--color-bg);
-		color: var(--color-text);
-		font-size: var(--font-size-md);
-		transition: all var(--transition-fast);
-	}
-
-	.form-input:focus {
-		outline: none;
-		border-color: var(--color-primary);
-		box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
-	}
-
-	.tags-display {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--spacing-sm);
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.modal-footer {
-		display: flex;
-		justify-content: flex-end;
-		align-items: center;
-		gap: var(--spacing-md);
-		padding: var(--spacing-lg);
-		border-top: 1px solid var(--color-border);
-	}
-
-	.modal-footer.footer-edit-mode {
-		border-top: none;
-		padding-top: 0;
-	}
-
-	.saving-indicator {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		min-height: 1.5em;
-	}
-
-	.saving-text {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		font-style: italic;
-	}
-
-	.button {
-		padding: var(--spacing-sm) var(--spacing-lg);
-		border: none;
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-md);
-		font-weight: var(--font-weight-medium);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-	}
-
-	.button-secondary {
-		background: transparent;
-		color: var(--color-text-secondary);
-		border: 1px solid var(--color-border);
-	}
-
-	.button-secondary:hover {
-		background: var(--color-surface-hover);
-		border-color: var(--color-border-hover);
-		color: var(--color-text);
-	}
-
-	.button-primary {
-		background: var(--color-primary);
-		color: var(--color-text-inverted);
-	}
-
-	.button-primary:hover {
-		background: var(--color-primary-hover);
-	}
-
-	.button-primary:active,
-	.button-secondary:active {
-		transform: scale(0.98);
-	}
-
-	.button:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-
-	.backlinks-section {
-		margin-top: var(--spacing-xl);
-		padding-top: var(--spacing-lg);
-		border-top: 1px solid var(--color-border);
-	}
-
-	.backlinks-title {
-		font-size: var(--font-size-md);
-		font-weight: var(--font-weight-semibold);
-		color: var(--color-text);
-		margin: 0 0 var(--spacing-md) 0;
-	}
-
-	.backlinks-empty {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		font-style: italic;
-		margin: 0;
-	}
-
-	.backlinks-list {
-		list-style: none;
-		padding: 0;
-		margin: 0;
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-xs);
-	}
-
-	.backlink-item {
-		margin: 0;
-	}
-
-	.backlink-button {
-		display: block;
-		width: 100%;
-		text-align: left;
-		padding: var(--spacing-sm) var(--spacing-md);
-		border: none;
-		background: var(--color-bg);
-		color: var(--color-primary);
-		font-size: var(--font-size-sm);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		transition: all var(--transition-fast);
-		text-decoration: none;
-	}
-
-	.backlink-button:hover {
-		background: var(--color-surface-hover);
-		text-decoration: underline;
-	}
-
-	.backlink-button:active {
-		transform: scale(0.98);
-	}
-
 	/* Mobile optimization */
 	@media (max-width: 768px) {
 		.entry-modal {
@@ -768,14 +386,8 @@
 			max-height: 90vh;
 		}
 
-		.modal-header,
-		.modal-body,
-		.modal-footer {
+		.modal-body {
 			padding: var(--spacing-md);
-		}
-
-		.modal-title {
-			font-size: var(--font-size-xl);
 		}
 	}
 </style>
