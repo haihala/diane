@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
-	import { resolveRoute } from '$app/paths';
+	import { resolve } from '$app/paths';
 	import EntryModal from './EntryModal.svelte';
 	import Icon from './Icon.svelte';
 	import {
@@ -167,9 +167,7 @@
 			isFocused = false;
 		} else if (option.type === 'result' && option.data) {
 			// Navigate to the entry page (which will open the modal)
-			const path = resolveRoute('/entries/[entryId]', { entryId: option.data.id });
-			// eslint-disable-next-line svelte/no-navigation-without-resolve
-			void goto(path);
+			void goto(resolve(`/entries/${option.data.id}`));
 		}
 	}
 

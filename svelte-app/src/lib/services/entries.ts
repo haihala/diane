@@ -91,8 +91,8 @@ export async function searchEntries(searchTerm: string): Promise<Entry[]> {
 	});
 
 	// Filter by title on client-side (Firestore doesn't support contains queries)
-	if (searchTerm) {
-		const lowerSearch = searchTerm.toLowerCase();
+	if (searchTerm?.trim()) {
+		const lowerSearch = searchTerm.toLowerCase().trim();
 		return entries.filter((entry) => entry.title.toLowerCase().includes(lowerSearch));
 	}
 
@@ -180,6 +180,10 @@ export async function getEntryTitle(id: string): Promise<string | null> {
  * Extracts all entry IDs from wiki links in content
  */
 export function extractEntryIdsFromContent(content: string): string[] {
+	if (!content || typeof content !== 'string') {
+		return [];
+	}
+
 	const ids: string[] = [];
 	let match;
 
@@ -187,7 +191,11 @@ export function extractEntryIdsFromContent(content: string): string[] {
 	WIKI_LINK_PATTERN.lastIndex = 0;
 
 	while ((match = WIKI_LINK_PATTERN.exec(content)) !== null) {
-		ids.push(match[1]);
+		const id = match[1];
+		// Only add non-empty IDs
+		if (id?.trim()) {
+			ids.push(id);
+		}
 	}
 
 	return [...new Set(ids)]; // Remove duplicates
@@ -199,9 +207,20 @@ export function extractEntryIdsFromContent(content: string): string[] {
 export async function loadEntryTitles(entryIds: string[]): Promise<Map<string, string>> {
 	const titleMap = new Map<string, string>();
 
+	if (!entryIds || entryIds.length === 0) {
+		return titleMap;
+	}
+
+	// Filter out invalid IDs
+	const validIds = entryIds.filter((id) => id && typeof id === 'string' && id.trim());
+
+	if (validIds.length === 0) {
+		return titleMap;
+	}
+
 	// Load all titles in parallel with error handling
 	await Promise.allSettled(
-		entryIds.map(async (id) => {
+		validIds.map(async (id) => {
 			try {
 				const title = await getEntryTitle(id);
 				if (title) {

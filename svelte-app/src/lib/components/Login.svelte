@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { signInWithGoogle } from '$lib/services/auth';
 
-	let isLoading = false;
-	let error: string | null = null;
+	let isLoading = $state(false);
+	let error = $state<string | null>(null);
 
 	async function handleGoogleSignIn(): Promise<void> {
 		isLoading = true;
@@ -36,7 +36,7 @@
 				</div>
 			{/if}
 
-			<button class="google-button" on:click={handleGoogleSignIn} disabled={isLoading}>
+			<button class="google-button" onclick={handleGoogleSignIn} disabled={isLoading}>
 				<svg class="google-icon" viewBox="0 0 24 24" aria-hidden="true">
 					<path
 						d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"

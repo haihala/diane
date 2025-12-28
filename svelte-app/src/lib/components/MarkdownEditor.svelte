@@ -2,11 +2,9 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import { parseMarkdown } from '$lib/services/markdown';
 	import { extractEntryIdsFromContent, loadEntryTitles } from '$lib/services/entries';
+	import { TAB_INDENT_SPACES } from '$lib/constants';
 	import LinkSelectorPopover from './LinkSelectorPopover.svelte';
 	import type { Entry } from '$lib/types/Entry';
-
-	// Constants
-	const TAB_INDENT_SPACES = 2;
 
 	interface Props {
 		value?: string;
@@ -24,7 +22,6 @@
 	const disabledValue = $derived(disabled ?? false);
 	const placeholderValue = $derived(placeholder ?? '');
 
-	let editorElement: HTMLDivElement | undefined = $state();
 	let editingBlockIndex: number | null = $state(null);
 	let cursorPosition: number = $state(0);
 	const textareaElements = new SvelteMap<number, HTMLTextAreaElement>();
@@ -516,7 +513,7 @@
 	});
 </script>
 
-<div class="markdown-editor" bind:this={editorElement}>
+<div class="markdown-editor">
 	<div class="editor-wrapper">
 		{#if !value.trim() && editingBlockIndex === null}
 			<div

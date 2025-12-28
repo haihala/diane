@@ -1,3 +1,5 @@
+import { LIST_INDENT_PX_PER_LEVEL } from '$lib/constants';
+
 // Token types for markdown syntax
 export type TokenType =
 	| 'text'
@@ -15,7 +17,6 @@ export type TokenType =
 
 // Constants
 const LIST_INDENT_SPACES = 2; // 2 spaces = 1 level
-const LIST_INDENT_PX_PER_LEVEL = 20;
 
 export interface Token {
 	type: TokenType;
@@ -196,8 +197,8 @@ export class MarkdownTokenizer {
 		if (!match) return false;
 
 		const start = this.pos;
-		const indent = match[1];
-		const content = match[2];
+		const indent = match[1] || '';
+		const content = match[2] || '';
 		const level = Math.floor(indent.length / LIST_INDENT_SPACES);
 
 		// Determine if it's a numbered list or bullet list
@@ -225,18 +226,22 @@ export class MarkdownTokenizer {
 		if (this.peek() === '[' && this.peek(1) === '[') {
 			const match = this.text.slice(this.pos).match(/^\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/);
 			if (match) {
-				const entryId = match[1];
-				const displayName = match[2] || entryId;
-				this.tokens.push({
-					type: 'wiki-link',
-					raw: match[0],
-					content: displayName,
-					start,
-					end: start + match[0].length,
-					entryId
-				});
-				this.advance(match[0].length);
-				return true;
+				const entryId = match[1] ? match[1].trim() : '';
+				const displayName = match[2] ? match[2].trim() : entryId;
+
+				// Only create token if entryId is not empty
+				if (entryId) {
+					this.tokens.push({
+						type: 'wiki-link',
+						raw: match[0],
+						content: displayName,
+						start,
+						end: start + match[0].length,
+						entryId
+					});
+					this.advance(match[0].length);
+					return true;
+				}
 			}
 		}
 
