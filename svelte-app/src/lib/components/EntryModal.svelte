@@ -218,27 +218,32 @@
 	}
 
 	function handleTitleKeydown(event: KeyboardEvent): void {
-		// If tag popover is open, let it handle arrow keys and Enter
-		if (
-			showTagPopover &&
-			(event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter')
-		) {
+		// If tag popover is open, handle Enter specially
+		if (showTagPopover && event.key === 'Enter') {
+			event.preventDefault();
+			// If there are available tags, let the popover handle selection
+			const hasMatches = tagSelectorRef?.hasAvailableTags?.() ?? false;
+			if (hasMatches) {
+				// Let the tag selector handle the Enter key
+				if (tagSelectorRef?.handleExternalKeydown) {
+					tagSelectorRef.handleExternalKeydown(event);
+				}
+			} else {
+				// No matches, create a new tag with the search term
+				if (tagSearchTerm.trim()) {
+					handleTagSelect(tagSearchTerm.trim());
+				}
+			}
+			return;
+		}
+
+		// If tag popover is open, let it handle arrow keys
+		if (showTagPopover && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
 			event.preventDefault();
 			if (tagSelectorRef?.handleExternalKeydown) {
 				tagSelectorRef.handleExternalKeydown(event);
 			}
 			return;
-		}
-
-		// Handle Space to add new tag when popover is open with no matches
-		if (event.key === ' ' && showTagPopover && tagSearchTerm.trim()) {
-			// Only add tag with Space if there are no available tags to select
-			const hasMatches = tagSelectorRef?.hasAvailableTags?.() ?? false;
-			if (!hasMatches) {
-				event.preventDefault();
-				handleTagSelect(tagSearchTerm.trim());
-				return;
-			}
 		}
 
 		// Handle Escape to close tag popover

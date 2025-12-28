@@ -55,6 +55,13 @@
 					Entries
 				</a>
 				<a
+					href={resolve('/management/tags')}
+					class="nav-item"
+					class:active={isActive('/management/tags')}
+				>
+					Tags
+				</a>
+				<a
 					href={resolve('/management/statistics')}
 					class="nav-item"
 					class:active={isActive('/management/statistics')}

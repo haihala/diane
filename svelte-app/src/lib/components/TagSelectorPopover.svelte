@@ -17,6 +17,9 @@
 
 	// Fetch all tags when component mounts and filter based on search term
 	$effect(() => {
+		// Capture searchTerm outside the promise to ensure reactivity tracking
+		const term = searchTerm.toLowerCase().trim();
+
 		void getAllEntries()
 			.then((entries) => {
 				// Extract all unique tags from all entries
@@ -29,7 +32,6 @@
 
 				// Convert to array and filter by search term
 				const allTags = Object.keys(allUniqueTagsMap);
-				const term = searchTerm.toLowerCase().trim();
 
 				if (term) {
 					availableTags = allTags.filter((tag) => tag.toLowerCase().includes(term)).sort();
@@ -103,7 +105,7 @@
 			</div>
 			{#if searchTerm.trim()}
 				<div class="create-hint">
-					Press <kbd>Space</kbd> to add <Tag tag={searchTerm.trim()} size="small" />
+					Press <kbd>Enter</kbd> to add <Tag tag={searchTerm.trim()} size="small" />
 				</div>
 			{/if}
 		</div>

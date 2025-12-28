@@ -279,3 +279,85 @@ export async function getBacklinks(targetEntryId: string): Promise<Entry[]> {
 	// Sort alphabetically by title
 	return backlinks.sort((a, b) => a.title.localeCompare(b.title));
 }
+
+/**
+ * Gets all unique tags from all entries
+ */
+export async function getAllTags(): Promise<Map<string, number>> {
+	const entries = await getAllEntries();
+	const tagCounts = new Map<string, number>();
+
+	entries.forEach((entry) => {
+		if (entry.tags && entry.tags.length > 0) {
+			entry.tags.forEach((tag) => {
+				tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+			});
+		}
+	});
+
+	return tagCounts;
+}
+
+/**
+ * Renames a tag across all entries that have it
+ */
+export async function renameTag(oldTag: string, newTag: string): Promise<void> {
+	const currentUser = auth.currentUser;
+	if (!currentUser) {
+		throw new Error('User must be authenticated to rename tags');
+	}
+
+	if (!oldTag.trim() || !newTag.trim()) {
+		throw new Error('Tag names cannot be empty');
+	}
+
+	if (oldTag === newTag) {
+		return; // No change needed
+	}
+
+	// Get all entries with the old tag
+	const allEntries = await getAllEntries();
+	const entriesToUpdate = allEntries.filter((entry) => entry.tags?.includes(oldTag));
+
+	// Update each entry with the new tag
+	const updatePromises = entriesToUpdate.map(async (entry) => {
+		const updatedTags = entry.tags.map((tag) => (tag === oldTag ? newTag : tag));
+		const entryRef = doc(db, ENTRIES_COLLECTION, entry.id);
+		await updateDoc(entryRef, {
+			tags: updatedTags,
+			updatedAt: Timestamp.fromDate(new Date())
+		});
+	});
+
+	await Promise.all(updatePromises);
+}
+
+/**
+ * Deletes a tag from all entries that have it
+ */
+export async function deleteTag(tagToDelete: string): Promise<void> {
+	const currentUser = auth.currentUser;
+	if (!currentUser) {
+		throw new Error('User must be authenticated to delete tags');
+	}
+
+	if (!tagToDelete.trim()) {
+		throw new Error('Tag name cannot be empty');
+	}
+
+	// Get all entries with the tag
+	const allEntries = await getAllEntries();
+	const entriesToUpdate = allEntries.filter((entry) => entry.tags?.includes(tagToDelete));
+
+	// Remove the tag from each entry
+	const updatePromises = entriesToUpdate.map(async (entry) => {
+		const updatedTags = entry.tags.filter((tag) => tag !== tagToDelete);
+		const entryRef = doc(db, ENTRIES_COLLECTION, entry.id);
+		await updateDoc(entryRef, {
+			tags: updatedTags,
+			updatedAt: Timestamp.fromDate(new Date())
+		});
+	});
+
+	await Promise.all(updatePromises);
+}
