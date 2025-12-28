@@ -13,6 +13,8 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { auth } from './firebase';
+import { impersonatedUser } from './auth';
+import { get } from 'svelte/store';
 import type { Entry, CreateEntryInput } from '$lib/types/Entry';
 import { extractTagsFromTitle } from './markdown';
 
@@ -28,6 +30,22 @@ interface EntryDocument {
 	tags?: string[];
 	createdAt: { toDate: () => Date };
 	updatedAt: { toDate: () => Date };
+}
+
+/**
+ * Get the effective user ID (impersonated user if active, otherwise current user)
+ */
+function getEffectiveUserId(): string {
+	const impersonated = get(impersonatedUser);
+	if (impersonated) {
+		return impersonated.uid;
+	}
+
+	if (!auth.currentUser) {
+		throw new Error('User must be authenticated');
+	}
+
+	return auth.currentUser.uid;
 }
 
 /**
@@ -48,8 +66,11 @@ export async function createEntry(input: CreateEntryInput): Promise<Entry> {
 	// Extract tags from title
 	const { tags, cleanedTitle } = extractTagsFromTitle(input.title);
 
+	// Use effective user ID (respects impersonation)
+	const effectiveUserId = getEffectiveUserId();
+
 	const docRef = await addDoc(collection(db, ENTRIES_COLLECTION), {
-		userId: currentUser.uid,
+		userId: effectiveUserId,
 		title: cleanedTitle,
 		content: input.content,
 		tags,
@@ -59,7 +80,7 @@ export async function createEntry(input: CreateEntryInput): Promise<Entry> {
 
 	return {
 		id: docRef.id,
-		userId: currentUser.uid,
+		userId: effectiveUserId,
 		title: cleanedTitle,
 		content: input.content,
 		tags,
@@ -77,8 +98,11 @@ export async function searchEntries(searchTerm: string): Promise<Entry[]> {
 		throw new Error('User must be authenticated to search entries');
 	}
 
+	// Use effective user ID (respects impersonation)
+	const effectiveUserId = getEffectiveUserId();
+
 	const constraints: QueryConstraint[] = [
-		where('userId', '==', currentUser.uid),
+		where('userId', '==', effectiveUserId),
 		orderBy('createdAt', 'desc')
 	];
 
@@ -133,8 +157,11 @@ export async function getEntryById(id: string): Promise<Entry | null> {
 
 	const data = entrySnap.data() as EntryDocument;
 
-	// Verify the entry belongs to the current user
-	if (data.userId !== currentUser.uid) {
+	// Use effective user ID (respects impersonation)
+	const effectiveUserId = getEffectiveUserId();
+
+	// Verify the entry belongs to the effective user
+	if (data.userId !== effectiveUserId) {
 		throw new Error('Unauthorized access to entry');
 	}
 
@@ -315,7 +342,7 @@ export async function renameTag(oldTag: string, newTag: string): Promise<void> {
 		return; // No change needed
 	}
 
-	// Get all entries with the old tag
+	// Get all entries with the old tag (respects impersonation)
 	const allEntries = await getAllEntries();
 	const entriesToUpdate = allEntries.filter((entry) => entry.tags?.includes(oldTag));
 
@@ -345,7 +372,7 @@ export async function deleteTag(tagToDelete: string): Promise<void> {
 		throw new Error('Tag name cannot be empty');
 	}
 
-	// Get all entries with the tag
+	// Get all entries with the tag (respects impersonation)
 	const allEntries = await getAllEntries();
 	const entriesToUpdate = allEntries.filter((entry) => entry.tags?.includes(tagToDelete));
 

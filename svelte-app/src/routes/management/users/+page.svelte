@@ -1,14 +1,18 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { userData, loading as authLoading } from '$lib/services/auth';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { userData, loading as authLoading, startImpersonation } from '$lib/services/auth';
 	import { getAllUsers, type UserWithStats } from '$lib/services/users';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
 	import EmptyState from '$lib/components/EmptyState.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	let users: UserWithStats[] = $state([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	let impersonating = $state<string | null>(null);
 
 	const stats = $derived({
 		totalUsers: users.length,
@@ -27,6 +31,19 @@
 			error = 'Failed to load users. Please try again.';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function handleImpersonate(userId: string): Promise<void> {
+		try {
+			impersonating = userId;
+			await startImpersonation(userId);
+			// Redirect to home page after starting impersonation
+			void goto(resolve('/'));
+		} catch (err) {
+			console.error('Error impersonating user:', err);
+			error = err instanceof Error ? err.message : 'Failed to impersonate user';
+			impersonating = null;
 		}
 	}
 
@@ -82,16 +99,17 @@
 						<th>Role</th>
 						<th>Entries</th>
 						<th>Last Active</th>
+						<th>Actions</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each users as user (user.uid)}
 						<tr>
 							<td class="user-name">
-								{user.displayName || 'Unknown User'}
+								{user.displayName ?? 'Unknown User'}
 							</td>
 							<td class="user-email">
-								{user.email || 'No email'}
+								{user.email ?? 'No email'}
 							</td>
 							<td>
 								<span class="role-badge" class:admin={user.isAdmin}>
@@ -100,6 +118,18 @@
 							</td>
 							<td class="entry-count">{user.entryCount}</td>
 							<td class="last-active">{formatDate(user.lastActive)}</td>
+							<td>
+								{#if !user.isAdmin}
+									<Button
+										variant="primary"
+										size="sm"
+										onclick={() => handleImpersonate(user.uid)}
+										disabled={impersonating === user.uid}
+									>
+										{impersonating === user.uid ? 'Impersonating...' : 'Impersonate'}
+									</Button>
+								{/if}
+							</td>
 						</tr>
 					{/each}
 				</tbody>

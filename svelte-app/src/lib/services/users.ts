@@ -91,7 +91,7 @@ export async function getAllUsers(): Promise<UserWithStats[]> {
 	try {
 		const usersCollection = collection(db, 'users');
 		const entriesCollection = collection(db, 'entries');
-		
+
 		const [usersSnapshot, entriesSnapshot] = await Promise.all([
 			getDocs(query(usersCollection)),
 			getDocs(query(entriesCollection))
@@ -100,15 +100,15 @@ export async function getAllUsers(): Promise<UserWithStats[]> {
 		// Count entries per user
 		const entryCountByUser = new Map<string, number>();
 		const lastActiveByUser = new Map<string, Date>();
-		
+
 		entriesSnapshot.docs.forEach((doc) => {
 			const entry = doc.data();
-			const userId = entry.userId;
-			
+			const userId = entry.userId as string;
+
 			if (userId) {
-				entryCountByUser.set(userId, (entryCountByUser.get(userId) || 0) + 1);
-				
-				const updatedAt = entry.updatedAt?.toDate();
+				entryCountByUser.set(userId, (entryCountByUser.get(userId) ?? 0) + 1);
+
+				const updatedAt = (entry.updatedAt as { toDate: () => Date } | undefined)?.toDate();
 				if (updatedAt) {
 					const currentLastActive = lastActiveByUser.get(userId);
 					if (!currentLastActive || updatedAt > currentLastActive) {
@@ -124,8 +124,8 @@ export async function getAllUsers(): Promise<UserWithStats[]> {
 			return {
 				uid: doc.id,
 				...userData,
-				entryCount: entryCountByUser.get(doc.id) || 0,
-				lastActive: lastActiveByUser.get(doc.id) || null
+				entryCount: entryCountByUser.get(doc.id) ?? 0,
+				lastActive: lastActiveByUser.get(doc.id) ?? null
 			};
 		});
 
@@ -135,4 +135,3 @@ export async function getAllUsers(): Promise<UserWithStats[]> {
 		throw error;
 	}
 }
-

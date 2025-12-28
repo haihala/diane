@@ -15,6 +15,9 @@ export const user = writable<User | null | undefined>(undefined);
 export const userData = writable<UserData | null>(null);
 export const loading = writable<boolean>(true);
 
+// Impersonation store - stores the impersonated user's data
+export const impersonatedUser = writable<{ uid: string; userData: UserData } | null>(null);
+
 // Promise that resolves when auth is initialized
 let authInitialized: Promise<User | null> | null = null;
 
@@ -96,9 +99,72 @@ export async function signInWithGoogle(): Promise<void> {
  */
 export async function signOut(): Promise<void> {
 	try {
+		// Clear impersonation when signing out
+		impersonatedUser.set(null);
 		await firebaseSignOut(auth);
 	} catch (error) {
 		console.error('Error signing out:', error);
 		throw error;
 	}
+}
+
+/**
+ * Start impersonating a user (admin only)
+ */
+export async function startImpersonation(targetUserId: string): Promise<void> {
+	const currentUser = auth.currentUser;
+	if (!currentUser) {
+		throw new Error('Must be authenticated to impersonate');
+	}
+
+	// Get current user's data to verify admin status
+	const currentUserData = await import('./users').then((m) => m.getUserData(currentUser.uid));
+	if (!currentUserData?.isAdmin) {
+		throw new Error('Only admin users can impersonate other users');
+	}
+
+	// Get target user's data
+	const targetUserData = await import('./users').then((m) => m.getUserData(targetUserId));
+	if (!targetUserData) {
+		throw new Error('Target user not found');
+	}
+
+	// Don't allow impersonating another admin
+	if (targetUserData.isAdmin) {
+		throw new Error('Cannot impersonate another admin user');
+	}
+
+	// Set the impersonated user
+	impersonatedUser.set({
+		uid: targetUserId,
+		userData: targetUserData
+	});
+}
+
+/**
+ * Stop impersonating and return to normal mode
+ */
+export function stopImpersonation(): void {
+	impersonatedUser.set(null);
+}
+
+/**
+ * Get the effective user ID (impersonated user if active, otherwise current user)
+ */
+export function getEffectiveUserId(): string | null {
+	let effectiveUserId: string | null = null;
+
+	// Get the current impersonated user
+	impersonatedUser.subscribe((impersonated) => {
+		if (impersonated) {
+			effectiveUserId = impersonated.uid;
+		}
+	})();
+
+	// If no impersonation, use the actual authenticated user
+	if (!effectiveUserId && auth.currentUser) {
+		effectiveUserId = auth.currentUser.uid;
+	}
+
+	return effectiveUserId;
 }

@@ -1,10 +1,12 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { user } from '$lib/services/auth';
 	import Icon from './Icon.svelte';
 	import UserInfo from './UserInfo.svelte';
 
 	function goToManagement(): void {
-		window.location.href = '/management';
+		void goto(resolve('/management'));
 	}
 </script>
 

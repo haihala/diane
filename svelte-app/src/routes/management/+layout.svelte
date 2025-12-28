@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { user, userData } from '$lib/services/auth';
+	import { user, userData, impersonatedUser } from '$lib/services/auth';
 	import UserInfo from '$lib/components/UserInfo.svelte';
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/stores';
@@ -11,7 +11,10 @@
 
 	const { children }: Props = $props();
 
-	const isAdmin = $derived($userData?.isAdmin ?? false);
+	// Use impersonated user's admin status if impersonating, otherwise use actual user's status
+	const isAdmin = $derived(
+		$impersonatedUser ? $impersonatedUser.userData.isAdmin : ($userData?.isAdmin ?? false)
+	);
 
 	function isActive(path: string): boolean {
 		return $page.url.pathname === path;
@@ -36,46 +39,46 @@
 	</header>
 
 	<div class="admin-body">
-	<!-- Left Sidebar -->
-	<nav class="admin-sidebar">
-		{#if isAdmin}
+		<!-- Left Sidebar -->
+		<nav class="admin-sidebar">
+			{#if isAdmin}
+				<div class="sidebar-section">
+					<h3 class="section-header">Admin</h3>
+					<a
+						href={resolve('/management/users')}
+						class="nav-item"
+						class:active={isActive('/management/users')}
+					>
+						Users
+					</a>
+				</div>
+			{/if}
+
 			<div class="sidebar-section">
-				<h3 class="section-header">Admin</h3>
+				<h3 class="section-header">Personal</h3>
 				<a
-					href={resolve('/management/users')}
+					href={resolve('/management/entries')}
 					class="nav-item"
-					class:active={isActive('/management/users')}
+					class:active={isActive('/management/entries')}
 				>
-					Users
+					Entries
+				</a>
+				<a
+					href={resolve('/management/tags')}
+					class="nav-item"
+					class:active={isActive('/management/tags')}
+				>
+					Tags
+				</a>
+				<a
+					href={resolve('/management/statistics')}
+					class="nav-item"
+					class:active={isActive('/management/statistics')}
+				>
+					Statistics
 				</a>
 			</div>
-		{/if}
-
-		<div class="sidebar-section">
-			<h3 class="section-header">Personal</h3>
-			<a
-				href={resolve('/management/entries')}
-				class="nav-item"
-				class:active={isActive('/management/entries')}
-			>
-				Entries
-			</a>
-			<a
-				href={resolve('/management/tags')}
-				class="nav-item"
-				class:active={isActive('/management/tags')}
-			>
-				Tags
-			</a>
-			<a
-				href={resolve('/management/statistics')}
-				class="nav-item"
-				class:active={isActive('/management/statistics')}
-			>
-				Statistics
-			</a>
-		</div>
-	</nav>
+		</nav>
 
 		<!-- Main Content -->
 		<main class="admin-content">

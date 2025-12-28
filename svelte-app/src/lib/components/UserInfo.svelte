@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { user, userData, signOut } from '$lib/services/auth';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { user, userData, impersonatedUser, signOut, stopImpersonation } from '$lib/services/auth';
+	import Button from '$lib/components/Button.svelte';
 
 	async function handleSignOut(): Promise<void> {
 		try {
@@ -8,18 +11,32 @@
 			console.error('Error signing out:', error);
 		}
 	}
+
+	function handleStopImpersonation(): void {
+		stopImpersonation();
+		// Redirect to users list after stopping impersonation
+		void goto(resolve('/management/users'));
+	}
 </script>
 
 <div class="user-section">
 	<div class="user-info">
-		{#if $userData?.isAdmin}
-			<span class="admin-badge">Admin</span>
-		{/if}
-		{#if $user}
-			<span class="user-email">{$user.email}</span>
+		{#if $impersonatedUser}
+			<div class="impersonation-info">
+				<span class="impersonation-badge">Impersonating</span>
+				<span class="user-email">{$impersonatedUser.userData.email}</span>
+				<Button size="sm" class="stop-button" onclick={handleStopImpersonation}>Stop</Button>
+			</div>
+		{:else}
+			{#if $userData?.isAdmin}
+				<span class="admin-badge">Admin</span>
+			{/if}
+			{#if $user}
+				<span class="user-email">{$user.email}</span>
+			{/if}
 		{/if}
 	</div>
-	<button class="sign-out-button" onclick={handleSignOut}>Sign Out</button>
+	<Button variant="secondary" size="sm" onclick={handleSignOut}>Sign Out</Button>
 </div>
 
 <style>
@@ -39,10 +56,25 @@
 		gap: var(--spacing-md);
 	}
 
+	.impersonation-info {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+	}
+
 	.admin-badge {
 		font-size: var(--font-size-sm);
 		font-weight: var(--font-weight-bold);
 		color: var(--color-primary);
+	}
+
+	.impersonation-badge {
+		font-size: var(--font-size-sm);
+		font-weight: var(--font-weight-bold);
+		color: #ff9800;
+		background: rgba(255, 152, 0, 0.1);
+		padding: var(--spacing-xs) var(--spacing-sm);
+		border-radius: var(--radius-sm);
 	}
 
 	.user-email {
@@ -50,21 +82,13 @@
 		color: var(--color-text-secondary);
 	}
 
-	.sign-out-button {
-		padding: var(--spacing-xs) var(--spacing-md);
-		background: transparent;
-		color: var(--color-text-secondary);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		font-size: var(--font-size-sm);
-		cursor: pointer;
-		transition: all 0.2s ease;
+	.user-section :global(.stop-button) {
+		background: #ff9800;
+		color: white;
 	}
 
-	.sign-out-button:hover {
-		background: var(--color-bg-secondary);
-		color: var(--color-text);
-		border-color: var(--color-primary);
+	.user-section :global(.stop-button:hover:not(:disabled)) {
+		background: #f57c00;
 	}
 
 	/* Mobile responsiveness */
