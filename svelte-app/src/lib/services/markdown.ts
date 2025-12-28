@@ -541,8 +541,11 @@ export class MarkdownParser {
 
 	private renderToken(token: Token): string {
 		switch (token.type) {
-			case 'heading':
-				return `<h${token.level}>${this.escapeHtml(token.content)}</h${token.level}>`;
+			case 'heading': {
+				// Parse inline content within the heading
+				const headingContentHtml = this.parseInlineContent(token.content);
+				return `<h${token.level}>${headingContentHtml}</h${token.level}>`;
+			}
 
 			case 'bold':
 				return `<strong>${this.escapeHtml(token.content)}</strong>`;
@@ -589,11 +592,16 @@ export class MarkdownParser {
 			case 'list-item': {
 				const indent = token.level ?? 0;
 				const marginLeft = indent * 20; // 20px per level
-				return `<li style="margin-left: ${marginLeft}px">${this.escapeHtml(token.content)}</li>`;
+				// Parse inline content within the list item
+				const contentHtml = this.parseInlineContent(token.content);
+				return `<li style="margin-left: ${marginLeft}px">${contentHtml}</li>`;
 			}
 
-			case 'blockquote':
-				return `<blockquote><p>${this.escapeHtml(token.content)}</p></blockquote>`;
+			case 'blockquote': {
+				// Parse inline content within the blockquote
+				const blockquoteContentHtml = this.parseInlineContent(token.content);
+				return `<blockquote><p>${blockquoteContentHtml}</p></blockquote>`;
+			}
 
 			case 'hr':
 				return '<hr>';
@@ -613,6 +621,29 @@ export class MarkdownParser {
 			.replace(/>/g, '&gt;')
 			.replace(/"/g, '&quot;')
 			.replace(/'/g, '&#039;');
+	}
+
+	// Parse inline elements from text content
+	private parseInlineContent(text: string): string {
+		const tokenizer = new MarkdownTokenizer(text);
+		const tokens = tokenizer.tokenize();
+		let html = '';
+
+		for (const token of tokens) {
+			// Only render inline tokens, not block-level ones
+			if (
+				['text', 'bold', 'italic', 'strikethrough', 'code', 'link', 'wiki-link'].includes(
+					token.type
+				)
+			) {
+				html += this.renderToken(token);
+			} else {
+				// For any block-level tokens that somehow got in, just escape as text
+				html += this.escapeHtml(token.raw);
+			}
+		}
+
+		return html;
 	}
 }
 

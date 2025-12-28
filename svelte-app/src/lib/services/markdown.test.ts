@@ -799,6 +799,72 @@ describe('Wiki Links', () => {
 			expect(result.html).toContain(' out.</p>');
 		});
 
+		it('should render wiki link in bullet point', () => {
+			const entryMap = new Map([['entry-123', 'Some Title']]);
+			const result = parseMarkdown('- Item with [[entry-123]] link\n', -1, entryMap);
+			expect(result.html).toContain('<li');
+			expect(result.html).toContain('Item with ');
+			expect(result.html).toContain(
+				'<a href="/entries/entry-123" class="wiki-link">Some Title</a>'
+			);
+			expect(result.html).toContain(' link</li>');
+		});
+
+		it('should render wiki link in bullet point with custom display name', () => {
+			const entryMap = new Map([['entry-456', 'Actual Title']]);
+			const result = parseMarkdown('- Check [[entry-456|Custom Name]] here\n', -1, entryMap);
+			expect(result.html).toContain('<li');
+			expect(result.html).toContain('Check ');
+			expect(result.html).toContain(
+				'<a href="/entries/entry-456" class="wiki-link">Custom Name</a>'
+			);
+			expect(result.html).toContain(' here</li>');
+		});
+
+		it('should render multiple wiki links in bullet point', () => {
+			const entryMap = new Map([
+				['entry-1', 'First Entry'],
+				['entry-2', 'Second Entry']
+			]);
+			const result = parseMarkdown('- Link to [[entry-1]] and [[entry-2]]\n', -1, entryMap);
+			expect(result.html).toContain('<li');
+			expect(result.html).toContain('<a href="/entries/entry-1" class="wiki-link">First Entry</a>');
+			expect(result.html).toContain(
+				'<a href="/entries/entry-2" class="wiki-link">Second Entry</a>'
+			);
+		});
+
+		it('should render wiki link with bold text in bullet point', () => {
+			const entryMap = new Map([['entry-123', 'Some Title']]);
+			const result = parseMarkdown('- **Bold** with [[entry-123]] link\n', -1, entryMap);
+			expect(result.html).toContain('<li');
+			expect(result.html).toContain('<strong>Bold</strong>');
+			expect(result.html).toContain(
+				'<a href="/entries/entry-123" class="wiki-link">Some Title</a>'
+			);
+		});
+
+		it('should render wiki link in blockquote', () => {
+			const entryMap = new Map([['entry-789', 'Quote Entry']]);
+			const result = parseMarkdown('> Quote with [[entry-789]] link\n', -1, entryMap);
+			expect(result.html).toContain('<blockquote>');
+			expect(result.html).toContain('Quote with ');
+			expect(result.html).toContain(
+				'<a href="/entries/entry-789" class="wiki-link">Quote Entry</a>'
+			);
+		});
+
+		it('should render wiki link in heading', () => {
+			const entryMap = new Map([['entry-head', 'Heading Entry']]);
+			const result = parseMarkdown('# Heading with [[entry-head]]\n', -1, entryMap);
+			expect(result.html).toContain('<h1>');
+			expect(result.html).toContain('Heading with ');
+			expect(result.html).toContain(
+				'<a href="/entries/entry-head" class="wiki-link">Heading Entry</a>'
+			);
+			expect(result.html).toContain('</h1>');
+		});
+
 		it('should handle cursor on wiki link', () => {
 			const entryMap = new Map([['entry-123', 'Some Title']]);
 			const result = parseMarkdown('[[entry-123]]', 5, entryMap);
