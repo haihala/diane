@@ -5,6 +5,7 @@
 	import { resolve } from '$app/paths';
 	import EntryModal from './EntryModal.svelte';
 	import Icon from './Icon.svelte';
+	import Tag from './Tag.svelte';
 	import {
 		searchEntries,
 		extractEntryIdsFromContent,
@@ -265,7 +266,16 @@
 						<Icon name="file" size={20} />
 					</div>
 					<div class="option-content">
-						<div class="option-title">{option.data.title}</div>
+						<div class="option-title-row">
+							<div class="option-title">{option.data.title}</div>
+							{#if option.data.tags && option.data.tags.length > 0}
+								<div class="option-tags">
+									{#each option.data.tags as tag (tag)}
+										<Tag {tag} size="small" />
+									{/each}
+								</div>
+							{/if}
+						</div>
 						<div class="option-subtitle">{getEntryPreview(option.data)}</div>
 					</div>
 				{/if}
@@ -418,16 +428,36 @@
 	.option-content {
 		flex: 1;
 		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-xs);
+	}
+
+	.option-title-row {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		justify-content: space-between;
+		min-width: 0;
 	}
 
 	.option-title {
 		font-size: var(--font-size-md);
 		font-weight: var(--font-weight-medium);
 		color: var(--color-text);
-		margin-bottom: var(--spacing-xs);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		flex-shrink: 1;
+		min-width: 0;
+	}
+
+	.option-tags {
+		display: flex;
+		gap: var(--spacing-xs);
+		flex-wrap: nowrap;
+		flex-shrink: 0;
+		overflow: hidden;
 	}
 
 	.option-subtitle {

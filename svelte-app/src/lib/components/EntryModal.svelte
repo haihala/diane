@@ -1,7 +1,10 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
 	import MarkdownEditor from './MarkdownEditor.svelte';
+	import Tag from './Tag.svelte';
+	import TagSelectorPopover from './TagSelectorPopover.svelte';
 	import { createEntry, updateEntry, getBacklinks } from '$lib/services/entries';
+	import { extractTagsFromTitle } from '$lib/services/markdown';
 	import type { Entry } from '$lib/types/Entry';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -26,6 +29,26 @@
 	let hasUnsavedChanges = $state(false);
 	let backlinks = $state<Entry[]>([]);
 	let isLoadingBacklinks = $state(false);
+	let lastLoadedEntryId = $state<string | undefined>(undefined);
+
+	// Tag selector popover state
+	let showTagPopover = $state(false);
+	let tagPopoverPosition = $state({ x: 0, y: 0 });
+	let tagSearchTerm = $state('');
+	let tagStartPos = $state(0);
+	let tagSelectorRef:
+		| { handleExternalKeydown: (e: KeyboardEvent) => void; hasAvailableTags: () => boolean }
+		| undefined = $state();
+
+	// Derive tags from the current title
+	const currentTags = $derived(extractTagsFromTitle(title).tags);
+
+	// Helper function to reconstruct title with tags
+	function getTitleWithTags(entry: Entry): string {
+		const tags = entry.tags ?? [];
+		const tagsString = tags.length > 0 ? ` ${tags.map((t) => `#${t}`).join(' ')}` : '';
+		return entry.title + tagsString;
+	}
 
 	// Handle opening/closing the dialog and set initial title
 	$effect(() => {
@@ -34,11 +57,14 @@
 				dialogElement.showModal();
 				// Set initial values based on whether we're editing or creating
 				if (entry) {
-					title = entry.title;
+					// Reconstruct title with tags
+					title = getTitleWithTags(entry);
 					content = entry.content;
+					lastLoadedEntryId = entry.id;
 				} else {
 					title = initialTitle;
 					content = '';
+					lastLoadedEntryId = undefined;
 				}
 				// Reset unsaved changes flag
 				hasUnsavedChanges = false;
@@ -55,11 +81,16 @@
 	// Watch for entry changes and update the modal content
 	$effect(() => {
 		if (entry && isOpen) {
-			title = entry.title;
-			content = entry.content;
-			hasUnsavedChanges = false;
+			// Only reload if the entry ID changed (navigating to a different entry)
+			// Don't reload if it's the same entry (just a data refresh after save)
+			if (entry.id !== lastLoadedEntryId) {
+				title = getTitleWithTags(entry);
+				content = entry.content;
+				lastLoadedEntryId = entry.id;
+				hasUnsavedChanges = false;
+			}
 
-			// Load backlinks for this entry
+			// Always load backlinks for the current entry
 			isLoadingBacklinks = true;
 			void getBacklinks(entry.id)
 				.then((links) => {
@@ -93,6 +124,7 @@
 					title: title.trim(),
 					content: content.trim()
 				});
+				hasUnsavedChanges = false;
 				onSave?.();
 			} catch (err) {
 				console.error('Failed to save entry:', err);
@@ -100,19 +132,19 @@
 				isSaving = false;
 				// Don't close if save failed
 				return;
+			} finally {
+				// Keep isSaving true until after onClose to avoid flicker
 			}
 		}
 
-		// Reset state and call onClose
-		isSaving = false;
-		error = null;
-		hasUnsavedChanges = false;
-
+		// Call onClose first (which triggers navigation)
 		onClose();
 
-		// Clear the form fields after a delay to avoid visual glitch
-		// The effect will handle resetting these when the modal reopens
+		// Reset state after a small delay to avoid visual glitch during close animation
 		setTimeout(() => {
+			isSaving = false;
+			error = null;
+			hasUnsavedChanges = false;
 			if (!isOpen) {
 				title = '';
 				content = '';
@@ -170,6 +202,7 @@
 	function handleBackdropClick(event: MouseEvent): void {
 		// Only close if clicking directly on the dialog element (the backdrop)
 		if (event.target === event.currentTarget) {
+			// In edit mode, backdrop click should save and close
 			void handleClose();
 		}
 	}
@@ -185,6 +218,36 @@
 	}
 
 	function handleTitleKeydown(event: KeyboardEvent): void {
+		// If tag popover is open, let it handle arrow keys and Enter
+		if (
+			showTagPopover &&
+			(event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter')
+		) {
+			event.preventDefault();
+			if (tagSelectorRef?.handleExternalKeydown) {
+				tagSelectorRef.handleExternalKeydown(event);
+			}
+			return;
+		}
+
+		// Handle Space to add new tag when popover is open with no matches
+		if (event.key === ' ' && showTagPopover && tagSearchTerm.trim()) {
+			// Only add tag with Space if there are no available tags to select
+			const hasMatches = tagSelectorRef?.hasAvailableTags?.() ?? false;
+			if (!hasMatches) {
+				event.preventDefault();
+				handleTagSelect(tagSearchTerm.trim());
+				return;
+			}
+		}
+
+		// Handle Escape to close tag popover
+		if (event.key === 'Escape' && showTagPopover) {
+			event.preventDefault();
+			showTagPopover = false;
+			return;
+		}
+
 		if (event.key === 'Enter' && event.ctrlKey) {
 			event.preventDefault();
 			void handleSave();
@@ -195,6 +258,93 @@
 				(markdownEditorElement as { focus: () => void }).focus();
 			}
 		}
+	}
+
+	function handleTitleInput(event: Event): void {
+		const target = event.target as HTMLInputElement;
+		checkForTagTrigger(target);
+		handleInput();
+	}
+
+	// Check if # was just typed to trigger tag selector
+	function checkForTagTrigger(input: HTMLInputElement): void {
+		const text = input.value;
+		const cursorPos = input.selectionStart ?? 0;
+
+		// Look backwards from cursor to find #
+		const textBeforeCursor = text.substring(0, cursorPos);
+
+		// Find the last # that's either at the start or preceded by whitespace
+		let lastHashPos = -1;
+		for (let i = textBeforeCursor.length - 1; i >= 0; i--) {
+			if (textBeforeCursor[i] === '#') {
+				// Check if it's at the start or preceded by whitespace
+				if (i === 0 || /\s/.test(textBeforeCursor[i - 1])) {
+					lastHashPos = i;
+					break;
+				}
+			} else if (/\s/.test(textBeforeCursor[i])) {
+				// Stop at whitespace if we haven't found a # yet
+				break;
+			}
+		}
+
+		// Check if we have a valid # trigger
+		if (lastHashPos !== -1) {
+			const textAfterHash = textBeforeCursor.substring(lastHashPos + 1);
+
+			// Only show popover if we have # followed by word characters (no spaces)
+			if (!textAfterHash.includes(' ') && /^\w*$/.test(textAfterHash)) {
+				tagSearchTerm = textAfterHash;
+				tagStartPos = lastHashPos;
+
+				// Calculate popover position
+				const rect = input.getBoundingClientRect();
+				tagPopoverPosition = {
+					x: rect.left,
+					y: rect.bottom + 5
+				};
+
+				showTagPopover = true;
+				return;
+			}
+		}
+
+		// Hide popover if no valid # trigger found
+		showTagPopover = false;
+	}
+
+	// Handle tag selection from popover
+	function handleTagSelect(tag: string): void {
+		if (!titleInputElement) return;
+
+		// Replace # and search term with the selected tag
+		const beforeTag = title.substring(0, tagStartPos);
+		const cursorPos = titleInputElement.selectionStart ?? 0;
+		const afterCursor = title.substring(cursorPos);
+
+		const tagText = `#${tag}`;
+
+		title = beforeTag + tagText + afterCursor;
+
+		// Move cursor after the inserted tag
+		const newCursorPos = tagStartPos + tagText.length;
+
+		// Update input
+		setTimeout(() => {
+			if (titleInputElement) {
+				titleInputElement.focus();
+				titleInputElement.selectionStart = titleInputElement.selectionEnd = newCursorPos;
+			}
+		}, 0);
+
+		showTagPopover = false;
+		handleInput();
+	}
+
+	// Close tag popover
+	function handleTagPopoverClose(): void {
+		showTagPopover = false;
 	}
 
 	async function handleBacklinkClick(backlinkEntry: Entry): Promise<void> {
@@ -263,11 +413,19 @@
 					class="form-input"
 					placeholder="Entry title..."
 					bind:value={title}
-					oninput={handleInput}
+					oninput={handleTitleInput}
 					onkeydown={handleTitleKeydown}
 					disabled={isSaving}
 				/>
 			</div>
+
+			{#if currentTags.length > 0}
+				<div class="tags-display">
+					{#each currentTags as tag (tag)}
+						<Tag {tag} />
+					{/each}
+				</div>
+			{/if}
 
 			<div class="form-group">
 				<label for="entry-content" class="form-label">Content</label>
@@ -290,7 +448,7 @@
 						<p class="backlinks-empty">Loading backlinks...</p>
 					{:else}
 						<ul class="backlinks-list">
-							{#each backlinks as backlink}
+							{#each backlinks as backlink (backlink.id)}
 								<li class="backlink-item">
 									<button
 										type="button"
@@ -336,6 +494,18 @@
 			{/if}
 		</footer>
 	</div>
+
+	{#if showTagPopover}
+		<div style="position: fixed; z-index: 10000; pointer-events: auto;">
+			<TagSelectorPopover
+				bind:this={tagSelectorRef}
+				searchTerm={tagSearchTerm}
+				position={tagPopoverPosition}
+				onSelect={handleTagSelect}
+				onClose={handleTagPopoverClose}
+			/>
+		</div>
+	{/if}
 </dialog>
 
 <style>
@@ -452,6 +622,13 @@
 		outline: none;
 		border-color: var(--color-primary);
 		box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.1);
+	}
+
+	.tags-display {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--spacing-sm);
+		margin-bottom: var(--spacing-lg);
 	}
 
 	.modal-footer {

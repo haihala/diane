@@ -697,6 +697,24 @@ export class MarkdownParser {
 	}
 }
 
+/**
+ * Extracts hashtags from a title string and returns both tags and cleaned title
+ */
+export function extractTagsFromTitle(title: string): { tags: string[]; cleanedTitle: string } {
+	const tagPattern = /#(\w+)/g;
+	const tags: string[] = [];
+	let match;
+
+	while ((match = tagPattern.exec(title)) !== null) {
+		tags.push(match[1]);
+	}
+
+	// Remove all hashtags from the title
+	const cleanedTitle = title.replace(/#\w+/g, '').trim().replace(/\s+/g, ' ');
+
+	return { tags, cleanedTitle };
+}
+
 // Main export function
 export function parseMarkdown(
 	text: string,

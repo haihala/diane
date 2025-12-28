@@ -14,6 +14,7 @@ import {
 import { db } from './firebase';
 import { auth } from './firebase';
 import type { Entry, CreateEntryInput } from '$lib/types/Entry';
+import { extractTagsFromTitle } from './markdown';
 
 const ENTRIES_COLLECTION = 'entries';
 
@@ -24,6 +25,7 @@ interface EntryDocument {
 	userId: string;
 	title: string;
 	content: string;
+	tags?: string[];
 	createdAt: { toDate: () => Date };
 	updatedAt: { toDate: () => Date };
 }
@@ -43,10 +45,14 @@ export async function createEntry(input: CreateEntryInput): Promise<Entry> {
 
 	const now = new Date();
 
+	// Extract tags from title
+	const { tags, cleanedTitle } = extractTagsFromTitle(input.title);
+
 	const docRef = await addDoc(collection(db, ENTRIES_COLLECTION), {
 		userId: currentUser.uid,
-		title: input.title,
+		title: cleanedTitle,
 		content: input.content,
+		tags,
 		createdAt: Timestamp.fromDate(now),
 		updatedAt: Timestamp.fromDate(now)
 	});
@@ -54,8 +60,9 @@ export async function createEntry(input: CreateEntryInput): Promise<Entry> {
 	return {
 		id: docRef.id,
 		userId: currentUser.uid,
-		title: input.title,
+		title: cleanedTitle,
 		content: input.content,
+		tags,
 		createdAt: now,
 		updatedAt: now
 	};
@@ -85,6 +92,7 @@ export async function searchEntries(searchTerm: string): Promise<Entry[]> {
 			userId: data.userId,
 			title: data.title,
 			content: data.content,
+			tags: data.tags ?? [],
 			createdAt: data.createdAt.toDate(),
 			updatedAt: data.updatedAt.toDate()
 		} as Entry;
@@ -135,6 +143,7 @@ export async function getEntryById(id: string): Promise<Entry | null> {
 		userId: data.userId,
 		title: data.title,
 		content: data.content,
+		tags: data.tags ?? [],
 		createdAt: data.createdAt.toDate(),
 		updatedAt: data.updatedAt.toDate()
 	};
@@ -153,10 +162,14 @@ export async function updateEntry(id: string, input: CreateEntryInput): Promise<
 		throw new Error('Entry title cannot be empty');
 	}
 
+	// Extract tags from title
+	const { tags, cleanedTitle } = extractTagsFromTitle(input.title);
+
 	const entryRef = doc(db, ENTRIES_COLLECTION, id);
 	await updateDoc(entryRef, {
-		title: input.title,
+		title: cleanedTitle,
 		content: input.content,
+		tags,
 		updatedAt: Timestamp.fromDate(new Date())
 	});
 

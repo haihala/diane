@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
 	import Icon from './Icon.svelte';
+	import Tag from './Tag.svelte';
 	import {
 		searchEntries,
 		extractEntryIdsFromContent,
@@ -140,7 +141,16 @@
 					<Icon name="file" size={20} />
 				</div>
 				<div class="option-content">
-					<div class="option-title">{entry.title}</div>
+					<div class="option-title-row">
+						<div class="option-title">{entry.title}</div>
+						{#if entry.tags && entry.tags.length > 0}
+							<div class="option-tags">
+								{#each entry.tags as tag (tag)}
+									<Tag {tag} size="small" />
+								{/each}
+							</div>
+						{/if}
+					</div>
 					{#if entry.content}
 						<div class="option-subtitle">{getEntryPreview(entry)}</div>
 					{/if}
@@ -226,16 +236,36 @@
 	.option-content {
 		flex: 1;
 		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-xs);
+	}
+
+	.option-title-row {
+		display: flex;
+		align-items: center;
+		gap: var(--spacing-sm);
+		justify-content: space-between;
+		min-width: 0;
 	}
 
 	.option-title {
 		font-size: var(--font-size-md);
 		font-weight: var(--font-weight-medium);
 		color: var(--color-text);
-		margin-bottom: var(--spacing-xs);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+		flex-shrink: 1;
+		min-width: 0;
+	}
+
+	.option-tags {
+		display: flex;
+		gap: var(--spacing-xs);
+		flex-wrap: nowrap;
+		flex-shrink: 0;
+		overflow: hidden;
 	}
 
 	.option-subtitle {
