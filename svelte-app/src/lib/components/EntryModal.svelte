@@ -1,8 +1,10 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
 	import MarkdownEditor from './MarkdownEditor.svelte';
-	import { createEntry, updateEntry } from '$lib/services/entries';
+	import { createEntry, updateEntry, getBacklinks } from '$lib/services/entries';
 	import type { Entry } from '$lib/types/Entry';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 
 	interface Props {
 		isOpen: boolean;
@@ -22,6 +24,8 @@
 	let isSaving = $state(false);
 	let error = $state<string | null>(null);
 	let hasUnsavedChanges = $state(false);
+	let backlinks = $state<Entry[]>([]);
+	let isLoadingBacklinks = $state(false);
 
 	// Handle opening/closing the dialog and set initial title
 	$effect(() => {
@@ -54,6 +58,20 @@
 			title = entry.title;
 			content = entry.content;
 			hasUnsavedChanges = false;
+
+			// Load backlinks for this entry
+			isLoadingBacklinks = true;
+			void getBacklinks(entry.id)
+				.then((links) => {
+					backlinks = links;
+				})
+				.catch((err) => {
+					console.error('Failed to load backlinks:', err);
+					backlinks = [];
+				})
+				.finally(() => {
+					isLoadingBacklinks = false;
+				});
 		}
 	});
 
@@ -179,6 +197,13 @@
 		}
 	}
 
+	async function handleBacklinkClick(backlinkEntry: Entry): Promise<void> {
+		// Save current entry if needed before navigating
+		await saveIfNeeded();
+		// Navigate to the backlink entry
+		void goto(resolve(`/entries/${backlinkEntry.id}`));
+	}
+
 	// Public method to save if there are unsaved changes
 	// This is called by the parent component before navigating away
 	export async function saveIfNeeded(): Promise<void> {
@@ -257,6 +282,29 @@
 					currentEntryId={entry?.id}
 				/>
 			</div>
+
+			{#if entry && (isLoadingBacklinks || backlinks.length > 0)}
+				<div class="backlinks-section">
+					<h3 class="backlinks-title">Backlinks</h3>
+					{#if isLoadingBacklinks}
+						<p class="backlinks-empty">Loading backlinks...</p>
+					{:else}
+						<ul class="backlinks-list">
+							{#each backlinks as backlink}
+								<li class="backlink-item">
+									<button
+										type="button"
+										class="backlink-button"
+										onclick={() => void handleBacklinkClick(backlink)}
+									>
+										{backlink.title}
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			{/if}
 		</div>
 
 		<footer class="modal-footer" class:footer-edit-mode={entry}>
@@ -472,6 +520,63 @@
 	.button:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+
+	.backlinks-section {
+		margin-top: var(--spacing-xl);
+		padding-top: var(--spacing-lg);
+		border-top: 1px solid var(--color-border);
+	}
+
+	.backlinks-title {
+		font-size: var(--font-size-md);
+		font-weight: var(--font-weight-semibold);
+		color: var(--color-text);
+		margin: 0 0 var(--spacing-md) 0;
+	}
+
+	.backlinks-empty {
+		font-size: var(--font-size-sm);
+		color: var(--color-text-secondary);
+		font-style: italic;
+		margin: 0;
+	}
+
+	.backlinks-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-xs);
+	}
+
+	.backlink-item {
+		margin: 0;
+	}
+
+	.backlink-button {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: var(--spacing-sm) var(--spacing-md);
+		border: none;
+		background: var(--color-bg);
+		color: var(--color-primary);
+		font-size: var(--font-size-sm);
+		border-radius: var(--radius-md);
+		cursor: pointer;
+		transition: all var(--transition-fast);
+		text-decoration: none;
+	}
+
+	.backlink-button:hover {
+		background: var(--color-surface-hover);
+		text-decoration: underline;
+	}
+
+	.backlink-button:active {
+		transform: scale(0.98);
 	}
 
 	/* Mobile optimization */

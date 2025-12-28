@@ -236,3 +236,33 @@ export async function loadEntryTitles(entryIds: string[]): Promise<Map<string, s
 
 	return titleMap;
 }
+
+/**
+ * Finds all entries that link to the given entry ID (backlinks)
+ */
+export async function getBacklinks(targetEntryId: string): Promise<Entry[]> {
+	const currentUser = auth.currentUser;
+	if (!currentUser) {
+		throw new Error('User must be authenticated to get backlinks');
+	}
+
+	// Get all entries for the current user
+	const allEntries = await getAllEntries();
+
+	// Filter entries that contain a link to the target entry
+	const backlinks = allEntries.filter((entry) => {
+		// Skip the target entry itself
+		if (entry.id === targetEntryId) {
+			return false;
+		}
+
+		// Extract all entry IDs from the content
+		const linkedIds = extractEntryIdsFromContent(entry.content);
+
+		// Check if this entry links to the target entry
+		return linkedIds.includes(targetEntryId);
+	});
+
+	// Sort alphabetically by title
+	return backlinks.sort((a, b) => a.title.localeCompare(b.title));
+}
