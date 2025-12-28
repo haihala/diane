@@ -176,16 +176,8 @@
 
 	function handleKeydown(event: KeyboardEvent): void {
 		if (event.key === 'Escape') {
-			event.preventDefault();
-			// In edit mode, blur the active element instead of closing
-			if (entry) {
-				if (document.activeElement instanceof HTMLElement) {
-					document.activeElement.blur();
-				}
-			} else {
-				// In create mode, close the modal
-				void handleClose();
-			}
+			// Save and close the modal
+			void handleClose();
 		}
 	}
 

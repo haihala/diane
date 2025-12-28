@@ -12,13 +12,7 @@
 </script>
 
 <footer class="modal-footer" class:footer-edit-mode={mode === 'edit'}>
-	{#if mode === 'edit'}
-		<div class="saving-indicator">
-			{#if isSaving}
-				<span class="saving-text">Saving...</span>
-			{/if}
-		</div>
-	{:else}
+	{#if mode === 'create'}
 		<Button variant="secondary" disabled={isSaving} onclick={onCancel}>Cancel</Button>
 		<Button variant="primary" disabled={isSaving} onclick={onSave}>
 			{isSaving ? 'Saving...' : 'Save Entry'}
@@ -39,18 +33,5 @@
 	.modal-footer.footer-edit-mode {
 		border-top: none;
 		padding-top: 0;
-	}
-
-	.saving-indicator {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		min-height: 1.5em;
-	}
-
-	.saving-text {
-		font-size: var(--font-size-sm);
-		color: var(--color-text-secondary);
-		font-style: italic;
 	}
 </style>
