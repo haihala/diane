@@ -4,6 +4,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { Entry } from '$lib/types/Entry';
+	import EmptyState from '$lib/components/EmptyState.svelte';
+	import Button from '$lib/components/Button.svelte';
 
 	let entries: Entry[] = $state([]);
 	let loading = $state(true);
@@ -33,6 +35,10 @@
 	function handleEntryClick(entryId: string): void {
 		void goto(resolve(`/entries/${entryId}`));
 	}
+
+	function handleCreateEntry(): void {
+		void goto(resolve('/'));
+	}
 </script>
 
 <div class="page-header">
@@ -45,6 +51,12 @@
 		<div class="spinner"></div>
 		<p>Loading entries...</p>
 	</div>
+{:else if entries.length === 0}
+	<EmptyState icon="file" message="No entries yet. Start creating your knowledge base!">
+		{#snippet action()}
+			<Button variant="primary" onclick={handleCreateEntry}>Create your first entry</Button>
+		{/snippet}
+	</EmptyState>
 {:else}
 	<div class="entries-list">
 		{#each entries as entry (entry.id)}
