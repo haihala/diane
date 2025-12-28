@@ -157,6 +157,11 @@
 		onkeydown?.(event);
 	}
 
+	function handleBlur(): void {
+		// Hide tag popover when focus moves away from the input
+		showTagPopover = false;
+	}
+
 	// Export focus method so parent can focus the input
 	export function focus(): void {
 		titleInputElement?.focus();
@@ -175,6 +180,7 @@
 			{value}
 			oninput={handleInput}
 			onkeydown={handleKeydown}
+			onblur={handleBlur}
 			{disabled}
 		/>
 	</div>
