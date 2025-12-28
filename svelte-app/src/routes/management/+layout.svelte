@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { user } from '$lib/services/auth';
+	import { user, userData } from '$lib/services/auth';
 	import UserInfo from '$lib/components/UserInfo.svelte';
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/stores';
@@ -10,6 +10,8 @@
 	}
 
 	const { children }: Props = $props();
+
+	const isAdmin = $derived($userData?.isAdmin ?? false);
 
 	function isActive(path: string): boolean {
 		return $page.url.pathname === path;
@@ -58,6 +60,15 @@
 				>
 					Statistics
 				</a>
+				{#if isAdmin}
+					<a
+						href={resolve('/management/users')}
+						class="nav-item"
+						class:active={isActive('/management/users')}
+					>
+						Users
+					</a>
+				{/if}
 			</div>
 		</nav>
 

@@ -1,6 +1,12 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, query } from 'firebase/firestore';
 import { db } from './firebase';
 import type { UserData } from '$lib/types/Entry';
+
+export interface UserWithStats extends UserData {
+	uid: string;
+	entryCount: number;
+	lastActive: Date | null;
+}
 
 /**
  * Get user data from Firestore
@@ -75,3 +81,58 @@ export async function ensureUserData(
 
 	return userData;
 }
+
+/**
+ * Get all users with their statistics
+ * Only accessible to admin users
+ * @returns Array of users with their stats
+ */
+export async function getAllUsers(): Promise<UserWithStats[]> {
+	try {
+		const usersCollection = collection(db, 'users');
+		const entriesCollection = collection(db, 'entries');
+		
+		const [usersSnapshot, entriesSnapshot] = await Promise.all([
+			getDocs(query(usersCollection)),
+			getDocs(query(entriesCollection))
+		]);
+
+		// Count entries per user
+		const entryCountByUser = new Map<string, number>();
+		const lastActiveByUser = new Map<string, Date>();
+		
+		entriesSnapshot.docs.forEach((doc) => {
+			const entry = doc.data();
+			const userId = entry.userId;
+			
+			if (userId) {
+				entryCountByUser.set(userId, (entryCountByUser.get(userId) || 0) + 1);
+				
+				const updatedAt = entry.updatedAt?.toDate();
+				if (updatedAt) {
+					const currentLastActive = lastActiveByUser.get(userId);
+					if (!currentLastActive || updatedAt > currentLastActive) {
+						lastActiveByUser.set(userId, updatedAt);
+					}
+				}
+			}
+		});
+
+		// Map users with their stats
+		const users: UserWithStats[] = usersSnapshot.docs.map((doc) => {
+			const userData = doc.data() as UserData;
+			return {
+				uid: doc.id,
+				...userData,
+				entryCount: entryCountByUser.get(doc.id) || 0,
+				lastActive: lastActiveByUser.get(doc.id) || null
+			};
+		});
+
+		return users;
+	} catch (error) {
+		console.error('Error getting all users:', error);
+		throw error;
+	}
+}
+
