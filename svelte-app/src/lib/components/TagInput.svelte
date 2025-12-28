@@ -170,7 +170,6 @@
 
 <div class="tag-input-container">
 	<div class="form-group">
-		<label for="entry-title" class="form-label">Title</label>
 		<input
 			bind:this={titleInputElement}
 			id="entry-title"
@@ -219,13 +218,6 @@
 		gap: var(--spacing-sm);
 	}
 
-	.form-label {
-		display: block;
-		font-size: var(--font-size-sm);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-text-secondary);
-	}
-
 	.form-input {
 		width: 100%;
 		padding: var(--spacing-md);
@@ -233,7 +225,9 @@
 		border-radius: var(--radius-md);
 		background: var(--color-bg);
 		color: var(--color-text);
-		font-size: var(--font-size-md);
+		font-size: 2.5rem;
+		font-weight: 700;
+		line-height: 1.2;
 		transition: all var(--transition-fast);
 	}
 

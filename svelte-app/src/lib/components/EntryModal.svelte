@@ -274,16 +274,15 @@
 				<div class="error-message">{error}</div>
 			{/if}
 
-			<TagInput
-				bind:this={tagInputElement}
-				bind:value={title}
-				oninput={handleTitleInput}
-				onkeydown={handleTitleKeydown}
-				disabled={isSaving}
-			/>
+			<div class="entry-fields">
+				<TagInput
+					bind:this={tagInputElement}
+					bind:value={title}
+					oninput={handleTitleInput}
+					onkeydown={handleTitleKeydown}
+					disabled={isSaving}
+				/>
 
-			<div class="form-group">
-				<label for="entry-content" class="form-label">Content</label>
 				<MarkdownEditor
 					bind:this={markdownEditorElement}
 					bind:value={content}
@@ -353,6 +352,13 @@
 		overflow-y: auto;
 	}
 
+	.entry-fields {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-lg);
+		margin-bottom: var(--spacing-lg);
+	}
+
 	.error-message {
 		padding: var(--spacing-md);
 		background: #fee;
@@ -361,22 +367,6 @@
 		color: #c33;
 		margin-bottom: var(--spacing-md);
 		font-size: var(--font-size-sm);
-	}
-
-	.form-group {
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.form-group:last-child {
-		margin-bottom: 0;
-	}
-
-	.form-label {
-		display: block;
-		font-size: var(--font-size-sm);
-		font-weight: var(--font-weight-medium);
-		color: var(--color-text-secondary);
-		margin-bottom: var(--spacing-sm);
 	}
 
 	/* Mobile optimization */
