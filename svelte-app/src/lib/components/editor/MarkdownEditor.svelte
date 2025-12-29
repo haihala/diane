@@ -1,8 +1,16 @@
 <script lang="ts">
 	import { SvelteMap } from 'svelte/reactivity';
 	import { parseMarkdown } from '$lib/services/markdown';
-	import { extractEntryIdsFromContent, loadEntryTitles } from '$lib/services/entries';
+	import {
+		extractEntryIdsFromContent,
+		loadEntryTitles,
+		createEntry,
+		updateEntry,
+		getEntryById
+	} from '$lib/services/entries';
 	import { TAB_INDENT_SPACES } from '$lib/constants';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import LinkSelectorPopover from '../popovers/LinkSelectorPopover.svelte';
 	import MarkdownBlock from '../editor/MarkdownBlock.svelte';
 	import type { Entry } from '$lib/types/Entry';
@@ -196,6 +204,59 @@
 	// Close link popover
 	function handleLinkPopoverClose(): void {
 		showLinkPopover = false;
+	}
+
+	// Handle creating a new entry from the link picker
+	async function handleCreateNewEntry(title: string): Promise<void> {
+		if (editingBlockIndex === null) return;
+
+		try {
+			// Always create the new entry immediately with the title
+			const newEntry = await createEntry({ title, content: '' });
+
+			// Insert the link in the current content
+			const currentBlock = blocks[editingBlockIndex];
+			const textarea = textareaElements.get(editingBlockIndex);
+
+			if (textarea) {
+				const beforeLink = currentBlock.substring(0, linkStartPos);
+				const cursorPos = textarea.selectionStart || 0;
+				let afterCursor = currentBlock.substring(cursorPos);
+
+				// Check if ]] already exists right after cursor and skip it if present
+				if (afterCursor.startsWith(']]')) {
+					afterCursor = afterCursor.substring(2);
+				}
+
+				const wikiLink = `[[${newEntry.id}]]`;
+				const newBlock = beforeLink + wikiLink + afterCursor;
+				blocks[editingBlockIndex] = newBlock;
+				syncValueFromBlocks();
+
+				// If editing an existing entry, save the updated content with the link
+				if (currentEntryId) {
+					// Get the current entry to preserve the title
+					const currentEntry = await getEntryById(currentEntryId);
+					if (currentEntry) {
+						// Save with the new content that includes the link
+						await updateEntry(currentEntryId, {
+							title: currentEntry.title,
+							content: value // Use the updated value with the link
+						});
+					}
+				}
+				// If creating a new entry (no currentEntryId), the link is in the local state
+				// and will be saved when the user saves this entry
+			}
+
+			showLinkPopover = false;
+
+			// Navigate to edit the newly created entry
+			const editUrl = resolve(`/entries/${newEntry.id}`);
+			await goto(editUrl);
+		} catch (err) {
+			console.error('Failed to create linked entry:', err);
+		}
 	}
 
 	// Check for [[ trigger to show link selector
@@ -551,6 +612,7 @@
 		position={linkPopoverPosition}
 		onSelect={handleLinkSelect}
 		onClose={handleLinkPopoverClose}
+		onCreateNew={handleCreateNewEntry}
 		{currentEntryId}
 	/>
 {/if}

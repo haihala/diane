@@ -16,10 +16,11 @@
 		position: { x: number; y: number };
 		onSelect: (entry: Entry) => void;
 		onClose: () => void;
+		onCreateNew?: (title: string) => void;
 		currentEntryId?: string; // ID of the current entry to exclude from results
 	}
 
-	const { searchTerm, position, onSelect, onClose, currentEntryId }: Props = $props();
+	const { searchTerm, position, onSelect, onClose, onCreateNew, currentEntryId }: Props = $props();
 
 	let searchResults = $state<Entry[]>([]);
 	let selectedIndex = $state(0);
@@ -82,18 +83,26 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent): void {
+		// Total options = search results + create new option (if available)
+		const totalOptions = searchResults.length + (onCreateNew && searchTerm.trim() ? 1 : 0);
+
 		switch (e.key) {
 			case 'ArrowDown':
 				e.preventDefault();
-				selectedIndex = (selectedIndex + 1) % searchResults.length;
+				selectedIndex = (selectedIndex + 1) % totalOptions;
 				break;
 			case 'ArrowUp':
 				e.preventDefault();
-				selectedIndex = selectedIndex === 0 ? searchResults.length - 1 : selectedIndex - 1;
+				selectedIndex = selectedIndex === 0 ? totalOptions - 1 : selectedIndex - 1;
 				break;
 			case 'Enter':
 				e.preventDefault();
-				if (searchResults[selectedIndex]) {
+				// If on the "Create new" option (last index when results exist or first when no results)
+				if (searchResults.length === 0 && onCreateNew && searchTerm.trim()) {
+					handleCreateNew();
+				} else if (selectedIndex === searchResults.length && onCreateNew && searchTerm.trim()) {
+					handleCreateNew();
+				} else if (searchResults[selectedIndex]) {
 					onSelect(searchResults[selectedIndex]);
 				}
 				break;
@@ -106,6 +115,12 @@
 
 	function handleOptionClick(entry: Entry): void {
 		onSelect(entry);
+	}
+
+	function handleCreateNew(): void {
+		if (onCreateNew && searchTerm.trim()) {
+			onCreateNew(searchTerm.trim());
+		}
 	}
 
 	// Expose the keydown handler so parent can forward events
@@ -121,7 +136,18 @@
 	style="left: {position.x}px; top: {position.y}px"
 >
 	{#if searchResults.length === 0}
-		<EmptyState icon="search" message="No entries found" />
+		{#if onCreateNew && searchTerm.trim()}
+			<PopoverOption
+				icon="plus"
+				title="Create '{searchTerm}'"
+				subtitle="Create a new note with this title"
+				variant="result"
+				isSelected={selectedIndex === 0}
+				onclick={handleCreateNew}
+			/>
+		{:else}
+			<EmptyState icon="search" message="No entries found" />
+		{/if}
 	{:else}
 		{#each searchResults as entry, index (entry.id)}
 			<PopoverOption
@@ -143,6 +169,16 @@
 				{/snippet}
 			</PopoverOption>
 		{/each}
+		{#if onCreateNew && searchTerm.trim()}
+			<PopoverOption
+				icon="plus"
+				title="Create '{searchTerm}'"
+				subtitle="Create a new note with this title"
+				variant="result"
+				isSelected={selectedIndex === searchResults.length}
+				onclick={handleCreateNew}
+			/>
+		{/if}
 	{/if}
 </div>
 

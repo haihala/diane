@@ -17,7 +17,7 @@
 		entry?: Entry;
 	}
 
-	const { initialTitle = '', entry }: Props = $props();
+	const { initialTitle, entry }: Props = $props();
 
 	let title = $state('');
 	let content = $state('');
@@ -69,15 +69,23 @@
 					});
 			}
 		} else {
-			// Creating new entry: prompt if there's content
-			if (hasContent) {
-				const shouldLeave = confirm('You have unsaved changes. Leave without saving?');
+			// Creating new entry: auto-save if there's content
+			if (hasContent && title.trim()) {
+				navigation.cancel();
+				isSavingBeforeNavigation = true;
 
-				if (!shouldLeave) {
-					// User wants to stay on the page - cancel navigation
-					navigation.cancel();
-				}
-				// If user confirms leaving, let the navigation proceed normally
+				void handleSave()
+					.catch((error) => {
+						console.error('Failed to save new entry before navigation:', error);
+					})
+					.finally(() => {
+						isSavingBeforeNavigation = false;
+						if (navigation.to?.url) {
+							// Use the full pathname since it's already resolved
+							// eslint-disable-next-line svelte/no-navigation-without-resolve
+							void goto(navigation.to.url.pathname);
+						}
+					});
 			}
 		}
 	});
@@ -97,7 +105,8 @@
 			content = entry.content;
 			lastLoadedEntryId = entry.id;
 		} else {
-			title = initialTitle;
+			// Use initialTitle prop for new entries
+			title = initialTitle ?? '';
 			content = '';
 			lastLoadedEntryId = undefined;
 		}
@@ -229,6 +238,7 @@
 					title: title.trim(),
 					content: content.trim()
 				});
+
 				toast.success('Entry created successfully');
 			}
 			// Navigate back to home after save
