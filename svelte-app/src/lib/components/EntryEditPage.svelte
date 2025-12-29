@@ -60,30 +60,13 @@
 		} else {
 			// Creating new entry: prompt if there's content
 			if (hasContent) {
-				navigation.cancel();
+				const shouldLeave = confirm('You have unsaved changes. Leave without saving?');
 
-				const shouldSave = confirm(
-					'You have unsaved changes. Do you want to save this entry before leaving?'
-				);
-
-				if (shouldSave && title.trim()) {
-					isSavingBeforeNavigation = true;
-					void createEntry({
-						title: title.trim(),
-						content: content.trim()
-					})
-						.catch((error) => {
-							console.error('Failed to save entry before navigation:', error);
-						})
-						.finally(() => {
-							isSavingBeforeNavigation = false;
-						});
+				if (!shouldLeave) {
+					// User wants to stay on the page - cancel navigation
+					navigation.cancel();
 				}
-
-				// Navigate to the intended destination regardless of save choice
-				if (navigation.to?.url) {
-					void goto(navigation.to.url);
-				}
+				// If user confirms leaving, let the navigation proceed normally
 			}
 		}
 	});
@@ -178,32 +161,12 @@
 		} else {
 			// Creating new entry: prompt if there's content
 			if (hasContent) {
-				const shouldSave = confirm(
-					'You have unsaved changes. Do you want to save this entry before leaving?'
-				);
+				const shouldLeave = confirm('You have unsaved changes. Leave without saving?');
 
-				if (shouldSave && title.trim()) {
-					isSaving = true;
-					error = null;
-
-					try {
-						await createEntry({
-							title: title.trim(),
-							content: content.trim()
-						});
-					} catch (err) {
-						console.error('Failed to save entry:', err);
-						error = err instanceof Error ? err.message : 'Failed to save entry';
-						isSaving = false;
-						// Don't navigate if save failed
-						return;
-					}
+				if (!shouldLeave) {
+					// User wants to stay on the page
+					return;
 				}
-				// User handled the confirmation, so skip beforeNavigate
-				isExplicitNavigation = true;
-			} else {
-				// No content, so skip beforeNavigate
-				isExplicitNavigation = true;
 			}
 		}
 
@@ -236,6 +199,7 @@
 				});
 			}
 			// Navigate back to home after save
+			isExplicitNavigation = true;
 			await goto(resolve('/'));
 		} catch (err) {
 			console.error('Failed to save entry:', err);
@@ -365,7 +329,7 @@
 					{#if isSaving}
 						Saving...
 					{:else}
-						Create Entry
+						Save & Close
 					{/if}
 				</Button>
 			{/if}
