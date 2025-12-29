@@ -314,13 +314,13 @@
 		if (option.type === 'new') {
 			// Navigate to new entry page with initial title
 			const encodedTitle = encodeURIComponent(inputValue.trim());
-			void goto(resolve(`/entries/new?title=${encodedTitle}`));
+			void goto(`${resolve('/entries/new')}?title=${encodedTitle}`);
 			isFocused = false;
 			onNewEntry?.();
 			inputValue = '';
 		} else if (option.type === 'result' && option.data) {
 			// Navigate to the entry page
-			void goto(resolve(`/entries/${option.data.id}`));
+			void goto(resolve('/entries/[entryId]', { entryId: option.data.id }));
 		}
 	}
 

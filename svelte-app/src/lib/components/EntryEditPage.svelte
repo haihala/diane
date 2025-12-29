@@ -53,8 +53,7 @@
 					.finally(() => {
 						isSavingBeforeNavigation = false;
 						if (navigation.to?.url) {
-							// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-							void goto(resolve(navigation.to.url.pathname as any));
+							void goto(navigation.to.url);
 						}
 					});
 			}
@@ -83,8 +82,7 @@
 
 				// Navigate to the intended destination regardless of save choice
 				if (navigation.to?.url) {
-					// eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-explicit-any
-					void goto(resolve(navigation.to.url.pathname as any));
+					void goto(navigation.to.url);
 				}
 			}
 		}
@@ -283,7 +281,7 @@
 		// Save current entry if needed before navigating
 		await saveIfNeeded();
 		// Navigate to the backlink entry
-		void goto(resolve(`/entries/${backlinkEntry.id}`));
+		void goto(resolve('/entries/[entryId]', { entryId: backlinkEntry.id }));
 	}
 
 	// Save if there are unsaved changes

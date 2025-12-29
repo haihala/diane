@@ -79,7 +79,7 @@
 	}
 
 	function handleWikiClick(wikiId: string): void {
-		void goto(resolve(`/management/wikis/${wikiId}`));
+		void goto(resolve('/management/wikis/[wikiId]', { wikiId }));
 	}
 </script>
 

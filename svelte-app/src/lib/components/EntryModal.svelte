@@ -223,7 +223,7 @@
 		// Save current entry if needed before navigating
 		await saveIfNeeded();
 		// Navigate to the backlink entry
-		void goto(resolve(`/entries/${backlinkEntry.id}`));
+		void goto(resolve('/entries/[entryId]', { entryId: backlinkEntry.id }));
 	}
 
 	// Public method to save if there are unsaved changes

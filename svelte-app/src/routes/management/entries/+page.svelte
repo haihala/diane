@@ -33,7 +33,7 @@
 	}
 
 	function handleEntryClick(entryId: string): void {
-		void goto(resolve(`/entries/${entryId}`));
+		void goto(resolve('/entries/[entryId]', { entryId }));
 	}
 
 	function handleCreateEntry(): void {
