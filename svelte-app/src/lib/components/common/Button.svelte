@@ -2,12 +2,13 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		variant?: 'primary' | 'secondary' | 'ghost' | 'icon';
+		variant?: 'primary' | 'secondary' | 'ghost' | 'icon' | 'danger';
 		size?: 'sm' | 'md' | 'lg';
 		disabled?: boolean;
 		onclick?: () => void;
 		type?: 'button' | 'submit' | 'reset';
 		class?: string;
+		title?: string;
 		children: Snippet;
 	}
 
@@ -18,11 +19,12 @@
 		onclick,
 		type = 'button',
 		class: className = '',
+		title,
 		children
 	}: Props = $props();
 </script>
 
-<button {type} class="button button-{variant} button-{size} {className}" {disabled} {onclick}>
+<button {type} class="button button-{variant} button-{size} {className}" {disabled} {onclick} {title}>
 	{@render children()}
 </button>
 
@@ -85,6 +87,15 @@
 		background: var(--color-surface-hover);
 		border-color: var(--color-border-hover);
 		color: var(--color-text);
+	}
+
+	.button-danger {
+		background: #dc2626;
+		color: var(--color-text-inverted);
+	}
+
+	.button-danger:hover:not(:disabled) {
+		background: #b91c1c;
 	}
 
 	.button-ghost {

@@ -10,7 +10,8 @@ import {
 	updateDoc,
 	type QueryConstraint,
 	getDocFromServer,
-	deleteField
+	deleteField,
+	deleteDoc
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { auth } from './firebase';
@@ -244,6 +245,25 @@ export async function updateEntry(id: string, input: CreateEntryInput): Promise<
 	await syncEntryWikis(id);
 
 	// Note: We no longer need to update backlinks since titles are loaded dynamically at runtime
+}
+
+/**
+ * Deletes an entry from Firestore
+ */
+export async function deleteEntry(id: string): Promise<void> {
+	const currentUser = auth.currentUser;
+	if (!currentUser) {
+		throw new Error('User must be authenticated to delete entries');
+	}
+
+	// Verify the entry belongs to the current user
+	const entry = await getEntryById(id);
+	if (!entry) {
+		throw new Error('Entry not found');
+	}
+
+	const entryRef = doc(db, ENTRIES_COLLECTION, id);
+	await deleteDoc(entryRef);
 }
 
 /**

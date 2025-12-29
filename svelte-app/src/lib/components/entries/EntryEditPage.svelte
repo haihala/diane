@@ -6,7 +6,7 @@
 	import BacklinksList from '../entries/BacklinksList.svelte';
 	import TagInput from '../editor/TagInput.svelte';
 	import PageLayout from '../layouts/PageLayout.svelte';
-	import { createEntry, updateEntry, getBacklinks } from '$lib/services/entries';
+	import { createEntry, updateEntry, deleteEntry, getBacklinks } from '$lib/services/entries';
 	import type { Entry } from '$lib/types/Entry';
 	import { toast } from '$lib/services/toast';
 	import { getWikiById } from '$lib/services/wikis';
@@ -24,6 +24,7 @@
 	let tagInputElement: TagInput | undefined = $state();
 	let markdownEditorElement: MarkdownEditor | undefined = $state();
 	let isSaving = $state(false);
+	let isDeleting = $state(false);
 	let error = $state<string | null>(null);
 	let hasUnsavedChanges = $state(false);
 	let backlinks = $state<Entry[]>([]);
@@ -241,6 +242,44 @@
 		}
 	}
 
+	async function handleDelete(): Promise<void> {
+		if (!entry) {
+			return;
+		}
+
+		const confirmed = confirm(
+			'Are you sure you want to delete this entry? This action cannot be undone.'
+		);
+
+		if (!confirmed) {
+			return;
+		}
+
+		isDeleting = true;
+		error = null;
+
+		try {
+			await deleteEntry(entry.id);
+			toast.success('Entry deleted successfully');
+			// Navigate back to home after delete
+			isExplicitNavigation = true;
+			await goto(resolve('/'));
+		} catch (err) {
+			console.error('Failed to delete entry:', err);
+			error = err instanceof Error ? err.message : 'Failed to delete entry';
+			toast.error('Failed to delete entry');
+			isDeleting = false;
+		}
+	}
+
+	function handleGlobalKeydown(event: KeyboardEvent): void {
+		// Delete: Ctrl+Shift+D or Cmd+Shift+D (only when editing)
+		if (entry && (event.ctrlKey || event.metaKey) && event.shiftKey && event.key === 'D') {
+			event.preventDefault();
+			void handleDelete();
+		}
+	}
+
 	function handleNavigateUpFromEditor(): void {
 		// Focus the tag input when navigating up from the editor
 		if (tagInputElement && 'focus' in tagInputElement) {
@@ -311,6 +350,8 @@
 	}
 </script>
 
+<svelte:window onkeydown={handleGlobalKeydown} />
+
 <PageLayout>
 	<div class="entry-edit-container">
 		<div class="entry-content">
@@ -376,20 +417,51 @@
 	<div class="footer-actions">
 		<div class="footer-content">
 			{#if entry}
-				<!-- Editing: Single close button (auto-saves) -->
-				<Button variant="primary" onclick={() => void handleCancel()} disabled={isSaving}>
-					{#if isSaving}
-						Saving...
-					{:else}
-						Close
-					{/if}
-				</Button>
+				<!-- Editing: Close and Delete buttons -->
+				<div class="footer-left">
+					<Button
+						variant="danger"
+						onclick={() => void handleDelete()}
+						disabled={isSaving || isDeleting}
+						title="Delete entry (Ctrl+Shift+D)"
+					>
+						{#if isDeleting}
+							Deleting...
+						{:else}
+							Delete
+						{/if}
+					</Button>
+				</div>
+				<div class="footer-right">
+					<Button
+						variant="primary"
+						onclick={() => void handleCancel()}
+						disabled={isSaving || isDeleting}
+						title="Close and auto-save (Esc)"
+					>
+						{#if isSaving}
+							Saving...
+						{:else}
+							Close
+						{/if}
+					</Button>
+				</div>
 			{:else}
 				<!-- Creating: Cancel and Create buttons -->
-				<Button variant="secondary" onclick={() => void handleCancel()} disabled={isSaving}>
+				<Button
+					variant="secondary"
+					onclick={() => void handleCancel()}
+					disabled={isSaving}
+					title="Cancel (Esc)"
+				>
 					Cancel
 				</Button>
-				<Button variant="primary" onclick={handleSave} disabled={isSaving}>
+				<Button
+					variant="primary"
+					onclick={handleSave}
+					disabled={isSaving}
+					title="Save and close (Ctrl+Enter)"
+				>
 					{#if isSaving}
 						Saving...
 					{:else}
@@ -469,7 +541,18 @@
 		margin: 0 auto;
 		display: flex;
 		gap: var(--spacing-md);
-		justify-content: flex-end;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.footer-left {
+		display: flex;
+		gap: var(--spacing-md);
+	}
+
+	.footer-right {
+		display: flex;
+		gap: var(--spacing-md);
 	}
 
 	/* Mobile optimization */
