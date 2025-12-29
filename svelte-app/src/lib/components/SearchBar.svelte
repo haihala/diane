@@ -3,7 +3,6 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import EntryModal from './EntryModal.svelte';
 	import Icon from './Icon.svelte';
 	import SearchResultOption from './SearchResultOption.svelte';
 	import TagSelectorPopover from './TagSelectorPopover.svelte';
@@ -26,7 +25,6 @@
 
 	let inputValue = $state('');
 	let isFocused = $state(false);
-	let isModalOpen = $state(false);
 	let selectedIndex = $state(0);
 	let inputElement: HTMLInputElement | undefined = $state();
 	let popoverElement: HTMLDivElement | undefined = $state();
@@ -314,26 +312,20 @@
 		if (!option) return;
 
 		if (option.type === 'new') {
-			isModalOpen = true;
+			// Navigate to new entry page with initial title
+			const encodedTitle = encodeURIComponent(inputValue.trim());
+			void goto(resolve(`/entries/new?title=${encodedTitle}`));
 			isFocused = false;
+			onNewEntry?.();
+			inputValue = '';
 		} else if (option.type === 'result' && option.data) {
-			// Navigate to the entry page (which will open the modal)
+			// Navigate to the entry page
 			void goto(resolve(`/entries/${option.data.id}`));
 		}
 	}
 
 	function handleOptionClick(index: number): void {
 		selectOption(index);
-	}
-
-	function handleModalClose(): void {
-		isModalOpen = false;
-		inputElement?.focus();
-	}
-
-	function handleModalSave(): void {
-		onNewEntry?.();
-		inputValue = '';
 	}
 
 	// Get preview text for an entry (first 100 chars, rendering wiki links as their display names)
@@ -401,13 +393,6 @@
 		{/each}
 	</div>
 </div>
-
-<EntryModal
-	isOpen={isModalOpen}
-	onClose={handleModalClose}
-	onSave={handleModalSave}
-	initialTitle={inputValue.trim()}
-/>
 
 {#if showTagPopover}
 	<div style="position: fixed; z-index: 10000; pointer-events: auto;">

@@ -6,4 +6,4 @@
 	let { data }: { data: PageData } = $props();
 </script>
 
-<EntryEditPage entry={data.entry} />
+<EntryEditPage initialTitle={data.initialTitle ?? ''} />
