@@ -253,6 +253,11 @@
 		void handleSave();
 	}
 
+	function handleEscapeFromEditor(): void {
+		// Save and close when Escape is pressed in the editor
+		void handleCancel();
+	}
+
 	function handleTitleKeydown(event: KeyboardEvent): void {
 		if (event.key === 'Enter' && event.ctrlKey) {
 			event.preventDefault();
@@ -353,6 +358,7 @@
 					disabled={isSaving}
 					onnavigateup={handleNavigateUpFromEditor}
 					onctrlenter={handleCtrlEnterFromEditor}
+					onescape={handleEscapeFromEditor}
 					currentEntryId={entry?.id}
 				/>
 			</div>

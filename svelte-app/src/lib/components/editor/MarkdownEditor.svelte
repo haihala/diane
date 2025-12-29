@@ -14,12 +14,14 @@
 		placeholder?: string;
 		onnavigateup?: () => void;
 		onctrlenter?: () => void;
+		onescape?: () => void;
 		currentEntryId?: string; // ID of the current entry (to exclude from link options)
 	}
 
 	// eslint-disable-next-line prefer-const
 	let { value = $bindable(''), ...props }: Props = $props();
-	const { oninput, disabled, placeholder, onnavigateup, onctrlenter, currentEntryId } = props;
+	const { oninput, disabled, placeholder, onnavigateup, onctrlenter, onescape, currentEntryId } =
+		props;
 	const disabledValue = $derived(disabled ?? false);
 	const placeholderValue = $derived(placeholder ?? '');
 
@@ -278,10 +280,15 @@
 			return;
 		}
 
-		// Handle Escape to close link popover
-		if (event.key === 'Escape' && showLinkPopover) {
+		// Handle Escape to close link popover or trigger parent escape handler
+		if (event.key === 'Escape') {
 			event.preventDefault();
-			showLinkPopover = false;
+			if (showLinkPopover) {
+				showLinkPopover = false;
+			} else {
+				// Nothing is focused (no popover), call parent escape handler
+				onescape?.();
+			}
 			return;
 		}
 
