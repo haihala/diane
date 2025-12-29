@@ -9,6 +9,7 @@
 		type?: 'button' | 'submit' | 'reset';
 		class?: string;
 		title?: string;
+		'aria-label'?: string;
 		children: Snippet;
 	}
 
@@ -20,6 +21,7 @@
 		type = 'button',
 		class: className = '',
 		title,
+		'aria-label': ariaLabel,
 		children
 	}: Props = $props();
 </script>
@@ -30,6 +32,7 @@
 	{disabled}
 	{onclick}
 	{title}
+	aria-label={ariaLabel}
 >
 	{@render children()}
 </button>

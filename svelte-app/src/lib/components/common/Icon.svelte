@@ -12,7 +12,7 @@
 	const iconPath = $derived(`/icons/${name}.svg`);
 </script>
 
-<img src={iconPath} alt="" width={size} height={size} class={className} />
+<img src={iconPath} alt="" aria-hidden="true" width={size} height={size} class={className} />
 
 <style>
 	img {

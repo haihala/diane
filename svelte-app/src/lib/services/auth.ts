@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import { browser } from '$app/environment';
 import {
 	signInWithPopup,
@@ -152,19 +152,17 @@ export function stopImpersonation(): void {
  * Get the effective user ID (impersonated user if active, otherwise current user)
  */
 export function getEffectiveUserId(): string | null {
-	let effectiveUserId: string | null = null;
+	// Use get() to read the store value without creating a subscription
+	const impersonated = get(impersonatedUser);
 
-	// Get the current impersonated user
-	impersonatedUser.subscribe((impersonated) => {
-		if (impersonated) {
-			effectiveUserId = impersonated.uid;
-		}
-	})();
-
-	// If no impersonation, use the actual authenticated user
-	if (!effectiveUserId && auth.currentUser) {
-		effectiveUserId = auth.currentUser.uid;
+	if (impersonated) {
+		return impersonated.uid;
 	}
 
-	return effectiveUserId;
+	// If no impersonation, use the actual authenticated user
+	if (auth.currentUser) {
+		return auth.currentUser.uid;
+	}
+
+	return null;
 }

@@ -19,11 +19,21 @@ import { impersonatedUser } from './auth';
 import { get } from 'svelte/store';
 import type { Entry, CreateEntryInput } from '$lib/types/Entry';
 import { extractTagsFromTitle } from './markdown';
+import { createEntryInputSchema, entryIdSchema, tagSchema } from '$lib/validation/entry';
+import { ZodError, type ZodIssue } from 'zod';
 
 const ENTRIES_COLLECTION = 'entries';
 
 // Regex pattern for extracting entry IDs from wiki links
 const WIKI_LINK_PATTERN = /\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g;
+
+/**
+ * Helper function to format Zod validation errors
+ */
+function formatValidationError(zodError: ZodError): string {
+	// ZodError.issues contains the array of validation errors
+	return zodError.issues.map((e: ZodIssue) => e.message).join(', ') || 'Validation error';
+}
 
 interface EntryDocument {
 	userId: string;
@@ -60,8 +70,14 @@ export async function createEntry(input: CreateEntryInput): Promise<Entry> {
 		throw new Error('User must be authenticated to create entries');
 	}
 
-	if (!input.title.trim()) {
-		throw new Error('Entry title cannot be empty');
+	// Validate input
+	try {
+		createEntryInputSchema.parse(input);
+	} catch (error) {
+		if (error instanceof ZodError) {
+			throw new Error(`Validation failed: ${formatValidationError(error)}`);
+		}
+		throw error;
 	}
 
 	const now = new Date();
@@ -144,6 +160,16 @@ export async function searchEntriesByTag(tag: string): Promise<Entry[]> {
 		throw new Error('User must be authenticated to search entries');
 	}
 
+	// Validate tag
+	try {
+		tagSchema.parse(tag);
+	} catch (error) {
+		if (error instanceof ZodError) {
+			throw new Error(`Invalid tag: ${formatValidationError(error)}`);
+		}
+		throw error;
+	}
+
 	// Use effective user ID (respects impersonation)
 	const effectiveUserId = getEffectiveUserId();
 
@@ -187,6 +213,16 @@ export async function getEntryById(id: string): Promise<Entry | null> {
 		throw new Error('User must be authenticated to get entries');
 	}
 
+	// Validate entry ID
+	try {
+		entryIdSchema.parse(id);
+	} catch (error) {
+		if (error instanceof ZodError) {
+			throw new Error(`Invalid entry ID: ${formatValidationError(error)}`);
+		}
+		throw error;
+	}
+
 	const entryRef = doc(db, ENTRIES_COLLECTION, id);
 	// Force fetch from server to avoid cache issues with backlink updates
 	const entrySnap = await getDocFromServer(entryRef);
@@ -226,8 +262,24 @@ export async function updateEntry(id: string, input: CreateEntryInput): Promise<
 		throw new Error('User must be authenticated to update entries');
 	}
 
-	if (!input.title.trim()) {
-		throw new Error('Entry title cannot be empty');
+	// Validate entry ID
+	try {
+		entryIdSchema.parse(id);
+	} catch (error) {
+		if (error instanceof ZodError) {
+			throw new Error(`Invalid entry ID: ${formatValidationError(error)}`);
+		}
+		throw error;
+	}
+
+	// Validate input
+	try {
+		createEntryInputSchema.parse(input);
+	} catch (error) {
+		if (error instanceof ZodError) {
+			throw new Error(`Validation failed: ${formatValidationError(error)}`);
+		}
+		throw error;
 	}
 
 	// Extract tags from title

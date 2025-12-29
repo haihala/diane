@@ -9,6 +9,7 @@
 	import type { Entry } from '$lib/types/Entry';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { focusTrap } from '$lib/utils/focusTrap';
 
 	interface Props {
 		isOpen: boolean;
@@ -89,6 +90,7 @@
 				})
 				.catch((err) => {
 					console.error('Failed to load backlinks:', err);
+					toast.error('Failed to load backlinks');
 					backlinks = [];
 				})
 				.finally(() => {
@@ -120,8 +122,9 @@
 				onSave?.();
 			} catch (err) {
 				console.error('Failed to save entry:', err);
-				error = err instanceof Error ? err.message : 'Failed to save entry';
-				toast.error('Failed to save entry');
+				const errorMessage = err instanceof Error ? err.message : 'Failed to save entry';
+				error = errorMessage;
+				toast.error(errorMessage);
 				isSaving = false;
 				// Don't close if save failed
 				return;
@@ -174,8 +177,9 @@
 			await handleClose();
 		} catch (err) {
 			console.error('Failed to save entry:', err);
-			error = err instanceof Error ? err.message : 'Failed to save entry';
-			toast.error('Failed to save entry');
+			const errorMessage = err instanceof Error ? err.message : 'Failed to save entry';
+			error = errorMessage;
+			toast.error(errorMessage);
 			isSaving = false;
 		}
 	}
@@ -249,8 +253,9 @@
 				onSave?.();
 			} catch (err) {
 				console.error('Failed to save entry:', err);
-				error = err instanceof Error ? err.message : 'Failed to save entry';
-				toast.error('Failed to save entry');
+				const errorMessage = err instanceof Error ? err.message : 'Failed to save entry';
+				error = errorMessage;
+				toast.error(errorMessage);
 				throw err; // Re-throw to let caller know save failed
 			} finally {
 				isSaving = false;
@@ -265,6 +270,7 @@
 	onkeydown={handleKeydown}
 	onclick={handleBackdropClick}
 	aria-labelledby="modal-title"
+	use:focusTrap
 >
 	<div class="modal-content" role="document">
 		<ModalHeader title={entry ? 'Edit Entry' : 'New Entry'} onClose={() => void handleClose()} />

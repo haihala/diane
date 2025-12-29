@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
+	import DOMPurify from 'dompurify';
 	import Button from '$lib/components/common/Button.svelte';
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
 	import PopoverOption from '$lib/components/common/PopoverOption.svelte';
@@ -11,7 +12,9 @@
 		loadEntryTitles
 	} from '$lib/services/entries';
 	import { parseMarkdown } from '$lib/services/markdown';
+	import { toast } from '$lib/services/toast';
 	import type { Entry } from '$lib/types/Entry';
+	import { focusTrap } from '$lib/utils/focusTrap';
 
 	interface Props {
 		isOpen: boolean;
@@ -55,6 +58,7 @@
 				})
 				.catch((err) => {
 					console.error('Search failed:', err);
+					toast.error('Search failed');
 					searchResults = [];
 				});
 		} else {
@@ -88,6 +92,7 @@
 			}
 		} catch (err) {
 			console.error('Failed to load entry titles:', err);
+			toast.error('Failed to load entry titles');
 		}
 	}
 
@@ -95,8 +100,12 @@
 		if (!entry.content) return '';
 
 		const parsed = parseMarkdown(entry.content, -1, entryTitles);
+
+		// Sanitize HTML to prevent XSS before setting innerHTML
+		const sanitizedHtml = DOMPurify.sanitize(parsed.html);
+
 		const div = document.createElement('div');
-		div.innerHTML = parsed.html;
+		div.innerHTML = sanitizedHtml;
 		const textContent = div.textContent || div.innerText || '';
 
 		return textContent.trim().substring(0, 100);
@@ -144,7 +153,7 @@
 			aria-label="Close search"
 			type="button"
 		></button>
-		<div class="search-modal-content">
+		<div class="search-modal-content" use:focusTrap>
 			<div class="search-header">
 				<h2 id="search-title" class="search-title">{title}</h2>
 				<p class="search-subtitle">{subtitle}</p>

@@ -58,6 +58,9 @@
 				void saveIfNeeded()
 					.catch((error) => {
 						console.error('Failed to save entry before navigation:', error);
+						const errorMessage =
+							error instanceof Error ? error.message : 'Failed to save entry before navigation';
+						toast.error(errorMessage);
 					})
 					.finally(() => {
 						isSavingBeforeNavigation = false;
@@ -77,6 +80,9 @@
 				void handleSave()
 					.catch((error) => {
 						console.error('Failed to save new entry before navigation:', error);
+						const errorMessage =
+							error instanceof Error ? error.message : 'Failed to save new entry before navigation';
+						toast.error(errorMessage);
 					})
 					.finally(() => {
 						isSavingBeforeNavigation = false;
@@ -140,6 +146,7 @@
 				})
 				.catch((err) => {
 					console.error('Failed to load backlinks:', err);
+					toast.error('Failed to load backlinks');
 					backlinks = [];
 				})
 				.finally(() => {
@@ -155,6 +162,7 @@
 					})
 					.catch((err) => {
 						console.error('Failed to load wikis:', err);
+						toast.error('Failed to load wiki information');
 						wikis = [];
 					})
 					.finally(() => {
@@ -191,8 +199,9 @@
 					toast.success('Entry saved successfully');
 				} catch (err) {
 					console.error('Failed to save entry:', err);
-					error = err instanceof Error ? err.message : 'Failed to save entry';
-					toast.error('Failed to save entry');
+					const errorMessage = err instanceof Error ? err.message : 'Failed to save entry';
+					error = errorMessage;
+					toast.error(errorMessage);
 					isSaving = false;
 					// Don't navigate if save failed
 					return;
@@ -246,8 +255,9 @@
 			await goto(resolve('/'));
 		} catch (err) {
 			console.error('Failed to save entry:', err);
-			error = err instanceof Error ? err.message : 'Failed to save entry';
-			toast.error('Failed to save entry');
+			const errorMessage = err instanceof Error ? err.message : 'Failed to save entry';
+			error = errorMessage;
+			toast.error(errorMessage);
 			isSaving = false;
 		}
 	}
@@ -276,8 +286,9 @@
 			await goto(resolve('/'));
 		} catch (err) {
 			console.error('Failed to delete entry:', err);
-			error = err instanceof Error ? err.message : 'Failed to delete entry';
-			toast.error('Failed to delete entry');
+			const errorMessage = err instanceof Error ? err.message : 'Failed to delete entry';
+			error = errorMessage;
+			toast.error(errorMessage);
 			isDeleting = false;
 		}
 	}
@@ -350,8 +361,9 @@
 				toast.success('Entry saved successfully');
 			} catch (err) {
 				console.error('Failed to save entry:', err);
-				error = err instanceof Error ? err.message : 'Failed to save entry';
-				toast.error('Failed to save entry');
+				const errorMessage = err instanceof Error ? err.message : 'Failed to save entry';
+				error = errorMessage;
+				toast.error(errorMessage);
 				throw err; // Re-throw to let caller know save failed
 			} finally {
 				isSaving = false;

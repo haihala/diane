@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
+	import DOMPurify from 'dompurify';
 	import Tag from '../common/Tag.svelte';
 	import EmptyState from '../common/EmptyState.svelte';
 	import PopoverOption from '../common/PopoverOption.svelte';
@@ -9,6 +10,7 @@
 		loadEntryTitles
 	} from '$lib/services/entries';
 	import { parseMarkdown } from '$lib/services/markdown';
+	import { toast } from '$lib/services/toast';
 	import type { Entry } from '$lib/types/Entry';
 
 	interface Props {
@@ -42,6 +44,7 @@
 			})
 			.catch((err) => {
 				console.error('Link search failed:', err);
+				toast.error('Link search failed');
 				searchResults = [];
 			});
 	});
@@ -63,6 +66,7 @@
 			}
 		} catch (err) {
 			console.error('Failed to load entry titles:', err);
+			toast.error('Failed to load entry titles');
 			// Keep existing titles on error
 		}
 	}
@@ -74,9 +78,12 @@
 		// Parse the content to resolve wiki links
 		const parsed = parseMarkdown(entry.content, -1, entryTitles);
 
+		// Sanitize HTML to prevent XSS before setting innerHTML
+		const sanitizedHtml = DOMPurify.sanitize(parsed.html);
+
 		// Extract text content from HTML
 		const div = document.createElement('div');
-		div.innerHTML = parsed.html;
+		div.innerHTML = sanitizedHtml;
 		const textContent = div.textContent || div.innerText || '';
 
 		return textContent.trim().substring(0, 100);

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import DOMPurify from 'dompurify';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import Icon from '../common/Icon.svelte';
@@ -13,6 +14,7 @@
 		loadEntryTitles
 	} from '$lib/services/entries';
 	import { parseMarkdown } from '$lib/services/markdown';
+	import { toast } from '$lib/services/toast';
 	import type { Entry } from '$lib/types/Entry';
 
 	interface Props {
@@ -143,6 +145,7 @@
 						})
 						.catch((err) => {
 							console.error('Tag search failed:', err);
+							toast.error('Tag search failed');
 							searchResults = [];
 						});
 				} else {
@@ -158,6 +161,7 @@
 					})
 					.catch((err) => {
 						console.error('Search failed:', err);
+						toast.error('Search failed');
 						searchResults = [];
 					});
 			}
@@ -184,6 +188,7 @@
 			}
 		} catch (err) {
 			console.error('Failed to load entry titles:', err);
+			toast.error('Failed to load entry titles');
 			// Keep existing titles on error
 		}
 	}
@@ -342,9 +347,12 @@
 		// Parse to resolve wiki links
 		const parsed = parseMarkdown(contentWithSpaces, -1, entryTitles);
 
+		// Sanitize HTML to prevent XSS before setting innerHTML
+		const sanitizedHtml = DOMPurify.sanitize(parsed.html);
+
 		// Extract text content from HTML
 		const div = document.createElement('div');
-		div.innerHTML = parsed.html;
+		div.innerHTML = sanitizedHtml;
 		const textContent = div.textContent || div.innerText || '';
 
 		return textContent.trim().substring(0, 100);
