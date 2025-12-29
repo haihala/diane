@@ -3,7 +3,6 @@
 // Export components for easy importing
 export { default as Icon } from './components/common/Icon.svelte';
 export { default as SearchBar } from './components/search/SearchBar.svelte';
-export { default as EntryModal } from './components/entries/EntryModal.svelte';
 export { default as MarkdownContent } from './components/editor/MarkdownContent.svelte';
 export { default as EntrySearchModal } from './components/modals/EntrySearchModal.svelte';
 

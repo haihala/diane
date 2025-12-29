@@ -21,6 +21,7 @@ import type { Entry, CreateEntryInput } from '$lib/types/Entry';
 import { extractTagsFromTitle } from './markdown';
 import { createEntryInputSchema, entryIdSchema, tagSchema } from '$lib/validation/entry';
 import { ZodError, type ZodIssue } from 'zod';
+import { astToText, type ASTNode } from './ast';
 
 const ENTRIES_COLLECTION = 'entries';
 
@@ -38,7 +39,7 @@ function formatValidationError(zodError: ZodError): string {
 interface EntryDocument {
 	userId: string;
 	title: string;
-	content: string;
+	contentAST?: ASTNode; // Optional for backward compatibility with old entries
 	tags?: string[];
 	wikiIds?: string[];
 	createdAt: { toDate: () => Date };
@@ -80,6 +81,10 @@ export async function createEntry(input: CreateEntryInput): Promise<Entry> {
 		throw error;
 	}
 
+	if (!input.contentAST) {
+		throw new Error('contentAST is required');
+	}
+
 	const now = new Date();
 
 	// Extract tags from title
@@ -91,7 +96,7 @@ export async function createEntry(input: CreateEntryInput): Promise<Entry> {
 	const docRef = await addDoc(collection(db, ENTRIES_COLLECTION), {
 		userId: effectiveUserId,
 		title: cleanedTitle,
-		content: input.content,
+		contentAST: input.contentAST,
 		tags,
 		createdAt: Timestamp.fromDate(now),
 		updatedAt: Timestamp.fromDate(now)
@@ -101,7 +106,7 @@ export async function createEntry(input: CreateEntryInput): Promise<Entry> {
 		id: docRef.id,
 		userId: effectiveUserId,
 		title: cleanedTitle,
-		content: input.content,
+		contentAST: input.contentAST,
 		tags,
 		createdAt: now,
 		updatedAt: now
@@ -128,19 +133,28 @@ export async function searchEntries(searchTerm: string): Promise<Entry[]> {
 	const q = query(collection(db, ENTRIES_COLLECTION), ...constraints);
 	const snapshot = await getDocs(q);
 
-	const entries = snapshot.docs.map((doc) => {
-		const data = doc.data() as EntryDocument;
-		return {
-			id: doc.id,
-			userId: data.userId,
-			title: data.title,
-			content: data.content,
-			tags: data.tags ?? [],
-			wikiIds: data.wikiIds ?? [],
-			createdAt: data.createdAt.toDate(),
-			updatedAt: data.updatedAt.toDate()
-		} as Entry;
-	});
+	const entries = snapshot.docs
+		.map((doc) => {
+			const data = doc.data() as EntryDocument;
+
+			// Skip entries without contentAST (old entries that haven't been migrated)
+			if (!data.contentAST) {
+				console.warn(`Entry ${doc.id} is missing contentAST and will be skipped`);
+				return null;
+			}
+
+			return {
+				id: doc.id,
+				userId: data.userId,
+				title: data.title,
+				contentAST: data.contentAST,
+				tags: data.tags ?? [],
+				wikiIds: data.wikiIds ?? [],
+				createdAt: data.createdAt.toDate(),
+				updatedAt: data.updatedAt.toDate()
+			} as Entry;
+		})
+		.filter((entry): entry is Entry => entry !== null);
 
 	// Filter by title on client-side (Firestore doesn't support contains queries)
 	if (searchTerm?.trim()) {
@@ -182,19 +196,28 @@ export async function searchEntriesByTag(tag: string): Promise<Entry[]> {
 	const q = query(collection(db, ENTRIES_COLLECTION), ...constraints);
 	const snapshot = await getDocs(q);
 
-	return snapshot.docs.map((doc) => {
-		const data = doc.data() as EntryDocument;
-		return {
-			id: doc.id,
-			userId: data.userId,
-			title: data.title,
-			content: data.content,
-			tags: data.tags ?? [],
-			wikiIds: data.wikiIds ?? [],
-			createdAt: data.createdAt.toDate(),
-			updatedAt: data.updatedAt.toDate()
-		} as Entry;
-	});
+	return snapshot.docs
+		.map((doc) => {
+			const data = doc.data() as EntryDocument;
+
+			// Skip entries without contentAST (old entries that haven't been migrated)
+			if (!data.contentAST) {
+				console.warn(`Entry ${doc.id} is missing contentAST and will be skipped`);
+				return null;
+			}
+
+			return {
+				id: doc.id,
+				userId: data.userId,
+				title: data.title,
+				contentAST: data.contentAST,
+				tags: data.tags ?? [],
+				wikiIds: data.wikiIds ?? [],
+				createdAt: data.createdAt.toDate(),
+				updatedAt: data.updatedAt.toDate()
+			} as Entry;
+		})
+		.filter((entry): entry is Entry => entry !== null);
 }
 
 /**
@@ -241,11 +264,18 @@ export async function getEntryById(id: string): Promise<Entry | null> {
 		throw new Error('Unauthorized access to entry');
 	}
 
+	// Check if entry has contentAST (old entries might not have it)
+	if (!data.contentAST) {
+		throw new Error(
+			`Entry ${entrySnap.id} is missing contentAST. This entry needs to be migrated to the new format.`
+		);
+	}
+
 	return {
 		id: entrySnap.id,
 		userId: data.userId,
 		title: data.title,
-		content: data.content,
+		contentAST: data.contentAST,
 		tags: data.tags ?? [],
 		wikiIds: data.wikiIds ?? [],
 		createdAt: data.createdAt.toDate(),
@@ -282,13 +312,17 @@ export async function updateEntry(id: string, input: CreateEntryInput): Promise<
 		throw error;
 	}
 
+	if (!input.contentAST) {
+		throw new Error('contentAST is required');
+	}
+
 	// Extract tags from title
 	const { tags, cleanedTitle } = extractTagsFromTitle(input.title);
 
 	const entryRef = doc(db, ENTRIES_COLLECTION, id);
 	await updateDoc(entryRef, {
 		title: cleanedTitle,
-		content: input.content,
+		contentAST: input.contentAST,
 		tags,
 		updatedAt: Timestamp.fromDate(new Date())
 	});
@@ -411,8 +445,9 @@ export async function getBacklinks(targetEntryId: string): Promise<Entry[]> {
 			return false;
 		}
 
-		// Extract all entry IDs from the content
-		const linkedIds = extractEntryIdsFromContent(entry.content);
+		// Extract all entry IDs from the content AST
+		const text = astToText(entry.contentAST);
+		const linkedIds = extractEntryIdsFromContent(text);
 
 		// Check if this entry links to the target entry
 		return linkedIds.includes(targetEntryId);
@@ -503,8 +538,9 @@ export async function getWikiPages(rootPageId: string): Promise<Entry[]> {
 
 			pages.push(entry);
 
-			// Extract all linked entry IDs from content
-			const linkedIds = extractEntryIdsFromContent(entry.content);
+			// Extract all linked entry IDs from content AST
+			const text = astToText(entry.contentAST);
+			const linkedIds = extractEntryIdsFromContent(text);
 
 			// Add unvisited linked IDs to the queue
 			for (const linkedId of linkedIds) {
@@ -563,11 +599,18 @@ export async function getEntryByIdPublic(id: string): Promise<Entry | null> {
 
 	const data = entrySnap.data() as EntryDocument;
 
+	// Check if entry has contentAST (old entries might not have it)
+	if (!data.contentAST) {
+		throw new Error(
+			`Entry ${entrySnap.id} is missing contentAST. This entry needs to be migrated to the new format.`
+		);
+	}
+
 	return {
 		id: entrySnap.id,
 		userId: data.userId,
 		title: data.title,
-		content: data.content,
+		contentAST: data.contentAST,
 		tags: data.tags ?? [],
 		wikiIds: data.wikiIds ?? [],
 		createdAt: data.createdAt.toDate(),

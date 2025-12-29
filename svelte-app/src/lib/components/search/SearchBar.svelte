@@ -13,7 +13,7 @@
 		extractEntryIdsFromContent,
 		loadEntryTitles
 	} from '$lib/services/entries';
-	import { parseMarkdown } from '$lib/services/markdown';
+	import { astToText, renderASTWithCursor } from '$lib/services/ast';
 	import { toast } from '$lib/services/toast';
 	import type { Entry } from '$lib/types/Entry';
 
@@ -173,10 +173,11 @@
 
 	async function loadTitlesForResults(results: Entry[]): Promise<void> {
 		try {
-			// Extract all entry IDs from all results' content
+			// Extract all entry IDs from all results' content AST
 			const allEntryIds = new SvelteSet<string>();
 			for (const result of results) {
-				const ids = extractEntryIdsFromContent(result.content);
+				const text = astToText(result.contentAST);
+				const ids = extractEntryIdsFromContent(text);
 				ids.forEach((id) => allEntryIds.add(id));
 			}
 
@@ -338,17 +339,18 @@
 
 	// Get preview text for an entry (first 100 chars, rendering wiki links as their display names)
 	function getEntryPreview(entry: Entry): string {
-		if (!entry.content) return '';
+		const text = astToText(entry.contentAST);
+		if (!text) return '';
 
 		// Simply replace double newlines with spaces to separate blocks,
-		// then parse markdown to resolve wiki links
-		const contentWithSpaces = entry.content.replace(/\n\n+/g, ' ');
+		// then render AST to resolve wiki links
+		const contentWithSpaces = text.replace(/\n\n+/g, ' ');
 
-		// Parse to resolve wiki links
-		const parsed = parseMarkdown(contentWithSpaces, -1, entryTitles);
+		// Render AST to resolve wiki links
+		const renderedHtml = renderASTWithCursor(entry.contentAST, -1, entryTitles);
 
 		// Sanitize HTML to prevent XSS before setting innerHTML
-		const sanitizedHtml = DOMPurify.sanitize(parsed.html);
+		const sanitizedHtml = DOMPurify.sanitize(renderedHtml);
 
 		// Extract text content from HTML
 		const div = document.createElement('div');

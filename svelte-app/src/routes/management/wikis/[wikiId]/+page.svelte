@@ -6,7 +6,7 @@
 	import Button from '$lib/components/common/Button.svelte';
 	import MarkdownContent from '$lib/components/editor/MarkdownContent.svelte';
 	import { extractEntryIdsFromContent, loadEntryTitles } from '$lib/services/entries';
-	import { parseMarkdown } from '$lib/services/markdown';
+	import { astToText, renderASTWithCursor } from '$lib/services/ast';
 	import { updateWikiNameAndSlug } from '$lib/services/wikis';
 	import { toast } from '$lib/services/toast';
 	import type { PageData } from './$types';
@@ -41,9 +41,10 @@
 			loading = true;
 			const allEntryIds = new SvelteSet<string>();
 
-			// Extract all entry IDs from all pages
+			// Extract all entry IDs from all pages' content AST
 			for (const page of data.pages) {
-				const ids = extractEntryIdsFromContent(page.content);
+				const text = astToText(page.contentAST);
+				const ids = extractEntryIdsFromContent(text);
 				ids.forEach((id) => allEntryIds.add(id));
 			}
 
@@ -101,8 +102,8 @@
 	);
 
 	// Render markdown for any page
-	function renderPageHtml(content: string): string {
-		return parseMarkdown(content, -1, entryTitles).html;
+	function renderPageHtml(contentAST: import('$lib/services/ast').ASTNode): string {
+		return renderASTWithCursor(contentAST, -1, entryTitles);
 	}
 </script>
 
@@ -169,7 +170,7 @@
 			<h2 class="section-title">Root Page</h2>
 			<div class="page-card">
 				<h3 class="page-card-title">{data.mainPage.title}</h3>
-				<MarkdownContent html={renderPageHtml(data.mainPage.content)} />
+				<MarkdownContent html={renderPageHtml(data.mainPage.contentAST)} />
 				{#if data.mainPage.tags && data.mainPage.tags.length > 0}
 					<div class="page-tags">
 						{#each data.mainPage.tags as tag (tag)}
@@ -188,7 +189,7 @@
 					{#each linkedPages as page (page.id)}
 						<div class="page-card">
 							<h3 class="page-card-title">{page.title}</h3>
-							<MarkdownContent html={renderPageHtml(page.content)} />
+							<MarkdownContent html={renderPageHtml(page.contentAST)} />
 							{#if page.tags && page.tags.length > 0}
 								<div class="page-tags">
 									{#each page.tags as tag (tag)}

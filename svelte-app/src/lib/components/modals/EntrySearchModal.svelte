@@ -11,7 +11,7 @@
 		extractEntryIdsFromContent,
 		loadEntryTitles
 	} from '$lib/services/entries';
-	import { parseMarkdown } from '$lib/services/markdown';
+	import { astToText, renderASTWithCursor } from '$lib/services/ast';
 	import { toast } from '$lib/services/toast';
 	import type { Entry } from '$lib/types/Entry';
 	import { focusTrap } from '$lib/utils/focusTrap';
@@ -80,7 +80,8 @@
 		try {
 			const allEntryIds = new SvelteSet<string>();
 			for (const result of results) {
-				const ids = extractEntryIdsFromContent(result.content);
+				const text = astToText(result.contentAST);
+				const ids = extractEntryIdsFromContent(text);
 				ids.forEach((id) => allEntryIds.add(id));
 			}
 
@@ -97,12 +98,13 @@
 	}
 
 	function getEntryPreview(entry: Entry): string {
-		if (!entry.content) return '';
+		const text = astToText(entry.contentAST);
+		if (!text) return '';
 
-		const parsed = parseMarkdown(entry.content, -1, entryTitles);
+		const renderedHtml = renderASTWithCursor(entry.contentAST, -1, entryTitles);
 
 		// Sanitize HTML to prevent XSS before setting innerHTML
-		const sanitizedHtml = DOMPurify.sanitize(parsed.html);
+		const sanitizedHtml = DOMPurify.sanitize(renderedHtml);
 
 		const div = document.createElement('div');
 		div.innerHTML = sanitizedHtml;
@@ -190,7 +192,7 @@
 						<PopoverOption
 							icon="file"
 							title={entry.title}
-							subtitle={entry.content ? getEntryPreview(entry) : undefined}
+							subtitle={getEntryPreview(entry) || undefined}
 							variant="result"
 							isSelected={index === selectedIndex}
 							onclick={() => onSelect(entry)}

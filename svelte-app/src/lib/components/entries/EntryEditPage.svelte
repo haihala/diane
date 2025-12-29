@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import MarkdownEditor from '../editor/MarkdownEditor.svelte';
+	import ASTEditor from '../editor/ASTEditor.svelte';
 	import Button from '../common/Button.svelte';
 	import BacklinksList from '../entries/BacklinksList.svelte';
 	import TagInput from '../editor/TagInput.svelte';
@@ -11,6 +11,7 @@
 	import { toast } from '$lib/services/toast';
 	import { getWikiById } from '$lib/services/wikis';
 	import type { Wiki } from '$lib/types/Wiki';
+	import { astToText, type ASTNode } from '$lib/services/ast';
 
 	interface Props {
 		initialTitle?: string;
@@ -20,9 +21,9 @@
 	const { initialTitle, entry }: Props = $props();
 
 	let title = $state('');
-	let content = $state('');
+	let contentAST = $state<ASTNode>({ type: 'document', start: 0, end: 0, children: [] });
 	let tagInputElement: TagInput | undefined = $state();
-	let markdownEditorElement: MarkdownEditor | undefined = $state();
+	let astEditorElement: ASTEditor | undefined = $state();
 	let isSaving = $state(false);
 	let isDeleting = $state(false);
 	let error = $state<string | null>(null);
@@ -47,7 +48,7 @@
 		}
 
 		// Check if there's any content that could be lost
-		const hasContent = title.trim() || content.trim();
+		const hasContent = title.trim() || astToText(contentAST).trim();
 
 		if (entry) {
 			// Editing existing entry: auto-save if there are unsaved changes
@@ -108,12 +109,12 @@
 		if (entry) {
 			// Reconstruct title with tags
 			title = getTitleWithTags(entry);
-			content = entry.content;
+			contentAST = entry.contentAST ?? { type: 'document', start: 0, end: 0, children: [] };
 			lastLoadedEntryId = entry.id;
 		} else {
 			// Use initialTitle prop for new entries
 			title = initialTitle ?? '';
-			content = '';
+			contentAST = { type: 'document', start: 0, end: 0, children: [] };
 			lastLoadedEntryId = undefined;
 		}
 		// Reset unsaved changes flag
@@ -133,7 +134,7 @@
 			// Don't reload if it's the same entry (just a data refresh after save)
 			if (entry.id !== lastLoadedEntryId) {
 				title = getTitleWithTags(entry);
-				content = entry.content;
+				contentAST = entry.contentAST ?? { type: 'document', start: 0, end: 0, children: [] };
 				lastLoadedEntryId = entry.id;
 				hasUnsavedChanges = false;
 			}
@@ -182,7 +183,7 @@
 	}
 
 	async function handleCancel(): Promise<void> {
-		const hasContent = title.trim() || content.trim();
+		const hasContent = title.trim() || astToText(contentAST).trim();
 
 		if (entry) {
 			// Editing existing entry: auto-save if there are unsaved changes
@@ -193,7 +194,7 @@
 				try {
 					await updateEntry(entry.id, {
 						title: title.trim(),
-						content: content.trim()
+						contentAST
 					});
 					hasUnsavedChanges = false;
 					toast.success('Entry saved successfully');
@@ -238,14 +239,14 @@
 				// Update existing entry
 				await updateEntry(entry.id, {
 					title: title.trim(),
-					content: content.trim()
+					contentAST
 				});
 				toast.success('Entry saved successfully');
 			} else {
 				// Create new entry
 				await createEntry({
 					title: title.trim(),
-					content: content.trim()
+					contentAST
 				});
 
 				toast.success('Entry created successfully');
@@ -324,9 +325,9 @@
 			void handleSave();
 		} else if (event.key === 'Enter') {
 			event.preventDefault();
-			// Focus the markdown editor when Enter is pressed
-			if (markdownEditorElement && 'focus' in markdownEditorElement) {
-				(markdownEditorElement as { focus: () => void }).focus();
+			// Focus the AST editor when Enter is pressed
+			if (astEditorElement && 'focus' in astEditorElement) {
+				(astEditorElement as { focus: () => void }).focus();
 			}
 		} else if (event.key === 'Escape') {
 			event.preventDefault();
@@ -355,7 +356,7 @@
 			try {
 				await updateEntry(entry.id, {
 					title: title.trim(),
-					content: content.trim()
+					contentAST
 				});
 				hasUnsavedChanges = false;
 				toast.success('Entry saved successfully');
@@ -413,10 +414,10 @@
 					disabled={isSaving}
 				/>
 
-				<MarkdownEditor
-					bind:this={markdownEditorElement}
-					bind:value={content}
-					oninput={handleInput}
+				<ASTEditor
+					bind:this={astEditorElement}
+					bind:ast={contentAST}
+					onchange={handleInput}
 					placeholder="What's on your mind?"
 					disabled={isSaving}
 					onnavigateup={handleNavigateUpFromEditor}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { parseMarkdown } from '$lib/services/markdown';
+	import { renderASTWithCursor, astToText, type ASTNode } from '$lib/services/ast';
 	import { extractEntryIdsFromContent, loadEntryTitlesPublic } from '$lib/services/entries';
 	import MarkdownContent from '$lib/components/editor/MarkdownContent.svelte';
 
@@ -9,7 +9,7 @@
 		};
 		entry: {
 			title: string;
-			content: string;
+			contentAST: ASTNode;
 		};
 	}
 
@@ -19,15 +19,16 @@
 	let entryTitleMap = $state(new Map<string, string>());
 
 	$effect(() => {
-		const entryIds = extractEntryIdsFromContent(entry.content);
+		const text = astToText(entry.contentAST);
+		const entryIds = extractEntryIdsFromContent(text);
 		void loadEntryTitlesPublic(entryIds).then((map) => {
 			entryTitleMap = map;
 		});
 	});
 
-	// Parse markdown with cursor beyond content (so all markdown is rendered)
-	const parsedContent = $derived(
-		parseMarkdown(entry.content, entry.content.length + 1, entryTitleMap, wiki.slug)
+	// Render AST with cursor beyond content (so all markdown is rendered)
+	const renderedHTML = $derived(
+		renderASTWithCursor(entry.contentAST, -1, entryTitleMap, wiki.slug)
 	);
 </script>
 
@@ -37,7 +38,7 @@
 			<h1 class="article-title">{entry.title}</h1>
 		</header>
 
-		<MarkdownContent html={parsedContent.html} variant="article" />
+		<MarkdownContent html={renderedHTML} variant="article" />
 	</article>
 </div>
 

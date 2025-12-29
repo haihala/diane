@@ -53,7 +53,7 @@ vi.mock('firebase/firestore', () => {
 				data: () => ({
 					userId: 'test-user-id',
 					title: 'Test Entry',
-					content: 'Test content',
+					contentAST: { type: 'document', start: 0, end: 0, children: [] },
 					tags: ['test'],
 					createdAt: { toDate: () => new Date('2024-01-01') },
 					updatedAt: { toDate: () => new Date('2024-01-01') }
@@ -67,7 +67,7 @@ vi.mock('firebase/firestore', () => {
 				data: () => ({
 					userId: 'test-user-id',
 					title: 'Test Entry',
-					content: 'Test content',
+					contentAST: { type: 'document', start: 0, end: 0, children: [] },
 					tags: ['test'],
 					createdAt: { toDate: () => new Date('2024-01-01') },
 					updatedAt: { toDate: () => new Date('2024-01-01') }
@@ -96,10 +96,10 @@ describe('entries service', () => {
 	});
 
 	describe('createEntry', () => {
-		it('should create an entry with title and content', async () => {
+		it('should create an entry with title and contentAST', async () => {
 			const input: CreateEntryInput = {
 				title: 'Test Entry',
-				content: 'This is test content'
+				contentAST: { type: 'document', start: 0, end: 0, children: [] }
 			};
 
 			const entry = await createEntry(input);
@@ -107,14 +107,15 @@ describe('entries service', () => {
 			expect(entry).toBeDefined();
 			expect(entry.id).toBe('test-entry-id');
 			expect(entry.title).toBe('Test Entry');
-			expect(entry.content).toBe('This is test content');
+			expect(entry.contentAST).toBeDefined();
+			expect(entry.contentAST.type).toBe('document');
 			expect(entry.userId).toBe('test-user-id');
 		});
 
 		it('should extract tags from title', async () => {
 			const input: CreateEntryInput = {
 				title: 'Test Entry #test #important',
-				content: 'Content'
+				contentAST: { type: 'document', start: 0, end: 0, children: [] }
 			};
 
 			const entry = await createEntry(input);
@@ -132,7 +133,7 @@ describe('entries service', () => {
 
 			const input: CreateEntryInput = {
 				title: 'Test',
-				content: 'Content'
+				contentAST: { type: 'document', start: 0, end: 0, children: [] }
 			};
 
 			await expect(createEntry(input)).rejects.toThrow(
@@ -149,7 +150,7 @@ describe('entries service', () => {
 		it('should throw error if title is empty', async () => {
 			const input: CreateEntryInput = {
 				title: '   ',
-				content: 'Content'
+				contentAST: { type: 'document', start: 0, end: 0, children: [] }
 			};
 
 			await expect(createEntry(input)).rejects.toThrow('Validation failed');
@@ -158,16 +159,37 @@ describe('entries service', () => {
 		it('should throw error if title exceeds maximum length', async () => {
 			const input: CreateEntryInput = {
 				title: 'a'.repeat(501), // Exceeds 500 char limit
-				content: 'Content'
+				contentAST: { type: 'document', start: 0, end: 0, children: [] }
 			};
 
 			await expect(createEntry(input)).rejects.toThrow('Validation failed');
 		});
 
 		it('should throw error if content exceeds maximum length', async () => {
+			// Create a large AST that exceeds the limit
+			const largeText = 'a'.repeat(1000001);
 			const input: CreateEntryInput = {
 				title: 'Test',
-				content: 'a'.repeat(1000001) // Exceeds 1MB limit
+				contentAST: {
+					type: 'document',
+					start: 0,
+					end: largeText.length,
+					children: [
+						{
+							type: 'paragraph',
+							start: 0,
+							end: largeText.length,
+							children: [
+								{
+									type: 'text',
+									start: 0,
+									end: largeText.length,
+									text: largeText
+								}
+							]
+						}
+					]
+				}
 			};
 
 			await expect(createEntry(input)).rejects.toThrow('Validation failed');
@@ -178,7 +200,26 @@ describe('entries service', () => {
 		it('should update an entry', async () => {
 			const result = await updateEntry('test-entry-id', {
 				title: 'Updated Title',
-				content: 'Updated content'
+				contentAST: {
+					type: 'document',
+					start: 0,
+					end: 15,
+					children: [
+						{
+							type: 'paragraph',
+							start: 0,
+							end: 15,
+							children: [
+								{
+									type: 'text',
+									start: 0,
+									end: 15,
+									text: 'Updated content'
+								}
+							]
+						}
+					]
+				}
 			});
 
 			expect(result).toBeUndefined();
@@ -192,7 +233,10 @@ describe('entries service', () => {
 			});
 
 			await expect(
-				updateEntry('test-entry-id', { title: 'Updated', content: 'Content' })
+				updateEntry('test-entry-id', {
+					title: 'Updated',
+					contentAST: { type: 'document', start: 0, end: 0, children: [] }
+				})
 			).rejects.toThrow('User must be authenticated');
 
 			// Restore auth state
@@ -274,7 +318,7 @@ describe('entries service', () => {
 						data: () => ({
 							userId: 'test-user-id',
 							title: 'Test Entry',
-							content: 'Content',
+							contentAST: { type: 'document', start: 0, end: 0, children: [] },
 							tags: [],
 							createdAt: { toDate: () => new Date('2024-01-01') },
 							updatedAt: { toDate: () => new Date('2024-01-01') }

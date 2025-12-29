@@ -23,8 +23,34 @@ export const titleSchema = z
 	.min(1, 'Title cannot be empty')
 	.max(500, 'Title must be 500 characters or less');
 
-// Content validation
-export const contentSchema = z.string().max(1000000, 'Content must be 1MB or less'); // Firestore document size limit
+// AST Node validation (recursive schema for contentAST)
+// We use z.lazy() for recursive types
+export const astNodeSchema: z.ZodType<any> = z.lazy(() =>
+	z.object({
+		type: z.string(),
+		start: z.number(),
+		end: z.number(),
+		children: z.array(astNodeSchema).optional(),
+		// Type-specific properties (all optional)
+		level: z.number().optional(),
+		href: z.string().optional(),
+		entryId: z.string().optional(),
+		language: z.string().optional(),
+		listType: z.enum(['bullet', 'ordered']).optional(),
+		listLevel: z.number().optional(),
+		text: z.string().optional()
+	})
+);
+
+// ContentAST validation - check structure and size
+export const contentASTSchema = astNodeSchema.refine(
+	(ast) => {
+		// Convert to JSON string to check size (approximate Firestore size)
+		const jsonSize = JSON.stringify(ast).length;
+		return jsonSize <= 1000000; // 1MB limit
+	},
+	{ message: 'Content must be 1MB or less' }
+);
 
 // Tag validation
 export const tagSchema = z
@@ -45,13 +71,13 @@ export const wikiIdsSchema = z
 // CreateEntryInput validation schema
 export const createEntryInputSchema = z.object({
 	title: titleSchema,
-	content: contentSchema
+	contentAST: contentASTSchema
 });
 
 // UpdateEntryInput validation schema
 export const updateEntryInputSchema = z.object({
 	title: titleSchema.optional(),
-	content: contentSchema.optional(),
+	contentAST: contentASTSchema.optional(),
 	tags: tagsSchema.optional(),
 	wikiIds: wikiIdsSchema
 });
@@ -61,7 +87,7 @@ export const entrySchema = z.object({
 	id: entryIdSchema,
 	userId: userIdSchema,
 	title: titleSchema,
-	content: contentSchema,
+	contentAST: contentASTSchema,
 	tags: tagsSchema,
 	wikiIds: wikiIdsSchema,
 	createdAt: z.date(),

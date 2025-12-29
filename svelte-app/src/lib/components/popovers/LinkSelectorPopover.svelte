@@ -9,7 +9,7 @@
 		extractEntryIdsFromContent,
 		loadEntryTitles
 	} from '$lib/services/entries';
-	import { parseMarkdown } from '$lib/services/markdown';
+	import { astToText, renderASTWithCursor } from '$lib/services/ast';
 	import { toast } from '$lib/services/toast';
 	import type { Entry } from '$lib/types/Entry';
 
@@ -51,10 +51,11 @@
 
 	async function loadTitlesForResults(results: Entry[]): Promise<void> {
 		try {
-			// Extract all entry IDs from all results' content
+			// Extract all entry IDs from all results' content AST
 			const allEntryIds = new SvelteSet<string>();
 			for (const result of results) {
-				const ids = extractEntryIdsFromContent(result.content);
+				const text = astToText(result.contentAST);
+				const ids = extractEntryIdsFromContent(text);
 				ids.forEach((id) => allEntryIds.add(id));
 			}
 
@@ -73,13 +74,14 @@
 
 	// Get preview text with resolved wiki links
 	function getEntryPreview(entry: Entry): string {
-		if (!entry.content) return '';
+		const text = astToText(entry.contentAST);
+		if (!text) return '';
 
-		// Parse the content to resolve wiki links
-		const parsed = parseMarkdown(entry.content, -1, entryTitles);
+		// Render the AST to resolve wiki links
+		const renderedHtml = renderASTWithCursor(entry.contentAST, -1, entryTitles);
 
 		// Sanitize HTML to prevent XSS before setting innerHTML
-		const sanitizedHtml = DOMPurify.sanitize(parsed.html);
+		const sanitizedHtml = DOMPurify.sanitize(renderedHtml);
 
 		// Extract text content from HTML
 		const div = document.createElement('div');
@@ -160,7 +162,7 @@
 			<PopoverOption
 				icon="file"
 				title={entry.title}
-				subtitle={entry.content ? getEntryPreview(entry) : undefined}
+				subtitle={getEntryPreview(entry) || undefined}
 				variant="result"
 				isSelected={index === selectedIndex}
 				onclick={() => handleOptionClick(entry)}
