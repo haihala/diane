@@ -1,11 +1,10 @@
-import { doc, getDoc, setDoc, collection, getDocs, query } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query } from 'firebase/firestore';
 import { db } from './firebase';
 import type { UserData } from '$lib/types/Entry';
 
 export interface UserWithStats extends UserData {
 	uid: string;
 	entryCount: number;
-	lastActive: Date | null;
 }
 
 /**
@@ -19,7 +18,16 @@ export async function getUserData(userId: string): Promise<UserData | null> {
 		const snapshot = await getDoc(userDoc);
 
 		if (snapshot.exists()) {
-			return snapshot.data() as UserData;
+			const data = snapshot.data();
+			return {
+				isAdmin: data.isAdmin as boolean,
+				displayName: (data.displayName as string | null) ?? null,
+				email: (data.email as string | null) ?? null,
+				lastActive: data.lastActive
+					? (data.lastActive as { toDate: () => Date }).toDate()
+					: undefined,
+				createdAt: data.createdAt ? (data.createdAt as { toDate: () => Date }).toDate() : undefined
+			};
 		}
 
 		return null;
@@ -40,16 +48,35 @@ export async function createUserData(
 ): Promise<void> {
 	try {
 		const userDoc = doc(db, 'users', userId);
+		const now = new Date();
 		const defaultUserData: UserData = {
 			isAdmin: false,
 			displayName: null,
 			email: null,
+			createdAt: now,
+			lastActive: now,
 			...userData
 		};
 
 		await setDoc(userDoc, defaultUserData);
 	} catch (error) {
 		console.error('Error creating user data:', error);
+		throw error;
+	}
+}
+
+/**
+ * Update user active timestamp
+ * @param userId - The user's authentication UID
+ */
+export async function updateUserLogin(userId: string): Promise<void> {
+	try {
+		const userDoc = doc(db, 'users', userId);
+		await updateDoc(userDoc, {
+			lastActive: new Date()
+		});
+	} catch (error) {
+		console.error('Error updating user active timestamp:', error);
 		throw error;
 	}
 }
@@ -70,12 +97,17 @@ export async function ensureUserData(
 	let userData = await getUserData(userId);
 
 	if (!userData) {
-		// First-time login - create user data with info from auth provider
 		await createUserData(userId, { displayName, email });
 		userData = await getUserData(userId);
 
 		if (!userData) {
 			throw new Error('Failed to create user data');
+		}
+	} else {
+		await updateUserLogin(userId);
+		userData = await getUserData(userId);
+		if (!userData) {
+			throw new Error('Failed to fetch updated user data');
 		}
 	}
 
@@ -97,9 +129,7 @@ export async function getAllUsers(): Promise<UserWithStats[]> {
 			getDocs(query(entriesCollection))
 		]);
 
-		// Count entries per user
 		const entryCountByUser = new Map<string, number>();
-		const lastActiveByUser = new Map<string, Date>();
 
 		entriesSnapshot.docs.forEach((doc) => {
 			const entry = doc.data();
@@ -107,25 +137,21 @@ export async function getAllUsers(): Promise<UserWithStats[]> {
 
 			if (userId) {
 				entryCountByUser.set(userId, (entryCountByUser.get(userId) ?? 0) + 1);
-
-				const updatedAt = (entry.updatedAt as { toDate: () => Date } | undefined)?.toDate();
-				if (updatedAt) {
-					const currentLastActive = lastActiveByUser.get(userId);
-					if (!currentLastActive || updatedAt > currentLastActive) {
-						lastActiveByUser.set(userId, updatedAt);
-					}
-				}
 			}
 		});
 
-		// Map users with their stats
 		const users: UserWithStats[] = usersSnapshot.docs.map((doc) => {
-			const userData = doc.data() as UserData;
+			const data = doc.data();
 			return {
 				uid: doc.id,
-				...userData,
-				entryCount: entryCountByUser.get(doc.id) ?? 0,
-				lastActive: lastActiveByUser.get(doc.id) ?? null
+				isAdmin: data.isAdmin as boolean,
+				displayName: (data.displayName as string | null) ?? null,
+				email: (data.email as string | null) ?? null,
+				lastActive: data.lastActive
+					? (data.lastActive as { toDate: () => Date }).toDate()
+					: undefined,
+				createdAt: data.createdAt ? (data.createdAt as { toDate: () => Date }).toDate() : undefined,
+				entryCount: entryCountByUser.get(doc.id) ?? 0
 			};
 		});
 

@@ -18,4 +18,6 @@ export interface UserData {
 	isAdmin: boolean;
 	displayName: string | null;
 	email: string | null;
+	lastActive?: Date;
+	createdAt?: Date;
 }

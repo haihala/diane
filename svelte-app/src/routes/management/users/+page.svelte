@@ -39,7 +39,7 @@
 		}
 	}
 
-	function formatDate(date: Date | null): string {
+	function formatDate(date: Date | null | undefined): string {
 		if (!date) return 'Never';
 		return new Intl.DateTimeFormat('en-US', {
 			dateStyle: 'medium'
