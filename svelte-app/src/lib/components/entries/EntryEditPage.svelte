@@ -9,6 +9,8 @@
 	import { createEntry, updateEntry, getBacklinks } from '$lib/services/entries';
 	import type { Entry } from '$lib/types/Entry';
 	import { toast } from '$lib/services/toast';
+	import { getWikiById } from '$lib/services/wikis';
+	import type { Wiki } from '$lib/types/Wiki';
 
 	interface Props {
 		initialTitle?: string;
@@ -29,6 +31,11 @@
 	let lastLoadedEntryId = $state<string | undefined>(undefined);
 	let isSavingBeforeNavigation = $state(false);
 	let isExplicitNavigation = $state(false); // Flag to skip beforeNavigate when user explicitly cancels
+	let wikis = $state<Wiki[]>([]);
+	let isLoadingWikis = $state(false);
+
+	// Check if entry is public (belongs to any wiki)
+	const isPublic = $derived(entry?.wikiIds && entry.wikiIds.length > 0);
 
 	// Auto-save or prompt before navigating away
 	beforeNavigate((navigation) => {
@@ -128,6 +135,24 @@
 				.finally(() => {
 					isLoadingBacklinks = false;
 				});
+
+			// Load wiki information if entry belongs to wikis
+			if (entry.wikiIds && entry.wikiIds.length > 0) {
+				isLoadingWikis = true;
+				void Promise.all(entry.wikiIds.map((wikiId) => getWikiById(wikiId)))
+					.then((wikiResults) => {
+						wikis = wikiResults.filter((wiki): wiki is Wiki => wiki !== null);
+					})
+					.catch((err) => {
+						console.error('Failed to load wikis:', err);
+						wikis = [];
+					})
+					.finally(() => {
+						isLoadingWikis = false;
+					});
+			} else {
+				wikis = [];
+			}
 		}
 	});
 
@@ -288,6 +313,29 @@
 				<div class="error-message">{error}</div>
 			{/if}
 
+			{#if isPublic}
+				<div class="public-indicator">
+					<div class="public-indicator-text">
+						{#if isLoadingWikis}
+							<span>Loading wiki information...</span>
+						{:else if wikis.length === 1}
+							<span
+								><strong>Warning:</strong> This entry belongs to the
+								<strong>{wikis[0].name}</strong> wiki, so it is publicly visible.</span
+							>
+						{:else if wikis.length > 1}
+							<span
+								><strong>Warning:</strong> This entry belongs to
+								<strong>{wikis.length} wikis</strong>
+								({wikis.map((w) => w.name).join(', ')}), so it is publicly visible.</span
+							>
+						{:else}
+							<span><strong>Warning:</strong> This entry is publicly visible.</span>
+						{/if}
+					</div>
+				</div>
+			{/if}
+
 			<div class="entry-fields">
 				<TagInput
 					bind:this={tagInputElement}
@@ -373,6 +421,28 @@
 		color: #c33;
 		margin-bottom: var(--spacing-md);
 		font-size: var(--font-size-sm);
+	}
+
+	.public-indicator {
+		display: flex;
+		align-items: flex-start;
+		padding: var(--spacing-md);
+		background: color-mix(in srgb, #f59e0b 10%, transparent);
+		border: 1px solid color-mix(in srgb, #f59e0b 30%, transparent);
+		border-radius: var(--radius-md);
+		color: #f59e0b;
+		font-size: var(--font-size-sm);
+		margin-bottom: var(--spacing-md);
+		width: 100%;
+	}
+
+	.public-indicator-text {
+		flex: 1;
+		line-height: 1.5;
+	}
+
+	.public-indicator-text strong {
+		font-weight: var(--font-weight-semibold);
 	}
 
 	.footer-actions {
