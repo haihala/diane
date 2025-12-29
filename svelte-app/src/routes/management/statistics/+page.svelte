@@ -1,7 +1,7 @@
 <script lang="ts">
-	import PageHeader from '$lib/components/PageHeader.svelte';
-	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
-	import StatCard from '$lib/components/StatCard.svelte';
+	import PageHeader from '$lib/components/layouts/PageHeader.svelte';
+	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
+	import StatCard from '$lib/components/common/StatCard.svelte';
 	import { getAllEntries } from '$lib/services/entries';
 	import { onMount } from 'svelte';
 	import type { Entry } from '$lib/types/Entry';

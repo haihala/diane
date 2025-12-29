@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
-	import Tag from './Tag.svelte';
-	import EmptyState from './EmptyState.svelte';
-	import PopoverOption from './PopoverOption.svelte';
+	import Tag from '../common/Tag.svelte';
+	import EmptyState from '../common/EmptyState.svelte';
+	import PopoverOption from '../common/PopoverOption.svelte';
 	import {
 		searchEntries,
 		extractEntryIdsFromContent,

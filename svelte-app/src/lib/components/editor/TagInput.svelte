@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Tag from './Tag.svelte';
-	import TagSelectorPopover from './TagSelectorPopover.svelte';
+	import Tag from '../common/Tag.svelte';
+	import TagSelectorPopover from '../popovers/TagSelectorPopover.svelte';
 	import { extractTagsFromTitle } from '$lib/services/markdown';
 
 	interface Props {

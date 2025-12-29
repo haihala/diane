@@ -1,9 +1,9 @@
 <script lang="ts">
-	import MarkdownEditor from './MarkdownEditor.svelte';
-	import ModalHeader from './ModalHeader.svelte';
-	import ModalFooter from './ModalFooter.svelte';
-	import BacklinksList from './BacklinksList.svelte';
-	import TagInput from './TagInput.svelte';
+	import MarkdownEditor from '../editor/MarkdownEditor.svelte';
+	import ModalHeader from '../modals/ModalHeader.svelte';
+	import ModalFooter from '../modals/ModalFooter.svelte';
+	import BacklinksList from '../entries/BacklinksList.svelte';
+	import TagInput from '../editor/TagInput.svelte';
 	import { createEntry, updateEntry, getBacklinks } from '$lib/services/entries';
 	import { toast } from '$lib/services/toast';
 	import type { Entry } from '$lib/types/Entry';

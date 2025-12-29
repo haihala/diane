@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
-	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
-	import EmptyState from '$lib/components/EmptyState.svelte';
-	import Tag from '$lib/components/Tag.svelte';
-	import Button from '$lib/components/Button.svelte';
-	import MarkdownContent from '$lib/components/MarkdownContent.svelte';
+	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
+	import EmptyState from '$lib/components/common/EmptyState.svelte';
+	import Tag from '$lib/components/common/Tag.svelte';
+	import Button from '$lib/components/common/Button.svelte';
+	import MarkdownContent from '$lib/components/editor/MarkdownContent.svelte';
 	import { extractEntryIdsFromContent, loadEntryTitles } from '$lib/services/entries';
 	import { parseMarkdown } from '$lib/services/markdown';
 	import { updateWikiNameAndSlug } from '$lib/services/wikis';

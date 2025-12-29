@@ -4,10 +4,10 @@
 	import { resolve } from '$app/paths';
 	import { userData, loading as authLoading, startImpersonation } from '$lib/services/auth';
 	import { getAllUsers, type UserWithStats } from '$lib/services/users';
-	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
-	import EmptyState from '$lib/components/EmptyState.svelte';
-	import StatCard from '$lib/components/StatCard.svelte';
-	import Button from '$lib/components/Button.svelte';
+	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
+	import EmptyState from '$lib/components/common/EmptyState.svelte';
+	import StatCard from '$lib/components/common/StatCard.svelte';
+	import Button from '$lib/components/common/Button.svelte';
 
 	let users: UserWithStats[] = $state([]);
 	let loading = $state(true);

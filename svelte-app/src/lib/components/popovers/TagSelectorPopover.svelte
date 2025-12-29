@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Tag from './Tag.svelte';
-	import EmptyState from './EmptyState.svelte';
-	import PopoverOption from './PopoverOption.svelte';
+	import Tag from '../common/Tag.svelte';
+	import EmptyState from '../common/EmptyState.svelte';
+	import PopoverOption from '../common/PopoverOption.svelte';
 	import { getAllEntries } from '$lib/services/entries';
 
 	interface Props {

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getAllTags, renameTag, deleteTag } from '$lib/services/entries';
 	import { onMount } from 'svelte';
-	import Icon from '$lib/components/Icon.svelte';
+	import Icon from '$lib/components/common/Icon.svelte';
 	import { toast } from '$lib/services/toast';
 
 	let tags = $state<Map<string, number>>(new Map());

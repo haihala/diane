@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
-	import Button from '$lib/components/Button.svelte';
-	import EmptyState from '$lib/components/EmptyState.svelte';
-	import PopoverOption from '$lib/components/PopoverOption.svelte';
-	import Tag from '$lib/components/Tag.svelte';
-	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import Button from '$lib/components/common/Button.svelte';
+	import EmptyState from '$lib/components/common/EmptyState.svelte';
+	import PopoverOption from '$lib/components/common/PopoverOption.svelte';
+	import Tag from '$lib/components/common/Tag.svelte';
+	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
 	import {
 		searchEntries,
 		extractEntryIdsFromContent,

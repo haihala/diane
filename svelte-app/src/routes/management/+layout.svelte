@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { user, userData, impersonatedUser } from '$lib/services/auth';
-	import UserInfo from '$lib/components/UserInfo.svelte';
+	import UserInfo from '$lib/components/auth/UserInfo.svelte';
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';

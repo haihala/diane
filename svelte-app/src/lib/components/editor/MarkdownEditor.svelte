@@ -3,8 +3,8 @@
 	import { parseMarkdown } from '$lib/services/markdown';
 	import { extractEntryIdsFromContent, loadEntryTitles } from '$lib/services/entries';
 	import { TAB_INDENT_SPACES } from '$lib/constants';
-	import LinkSelectorPopover from './LinkSelectorPopover.svelte';
-	import MarkdownBlock from './MarkdownBlock.svelte';
+	import LinkSelectorPopover from '../popovers/LinkSelectorPopover.svelte';
+	import MarkdownBlock from '../editor/MarkdownBlock.svelte';
 	import type { Entry } from '$lib/types/Entry';
 
 	interface Props {

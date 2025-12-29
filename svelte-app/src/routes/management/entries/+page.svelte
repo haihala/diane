@@ -4,8 +4,8 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { Entry } from '$lib/types/Entry';
-	import EmptyState from '$lib/components/EmptyState.svelte';
-	import Button from '$lib/components/Button.svelte';
+	import EmptyState from '$lib/components/common/EmptyState.svelte';
+	import Button from '$lib/components/common/Button.svelte';
 
 	let entries: Entry[] = $state([]);
 	let loading = $state(true);

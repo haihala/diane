@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { parseMarkdown } from '$lib/services/markdown';
 	import { extractEntryIdsFromContent, loadEntryTitlesPublic } from '$lib/services/entries';
-	import MarkdownContent from '$lib/components/MarkdownContent.svelte';
+	import MarkdownContent from '$lib/components/editor/MarkdownContent.svelte';
 
 	interface Props {
 		wiki: {

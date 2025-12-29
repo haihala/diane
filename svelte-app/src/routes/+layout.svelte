@@ -5,8 +5,8 @@
 	import { page } from '$app/state';
 	import '../app.css';
 	import { initializeAuth, user, loading } from '$lib/services/auth';
-	import Login from '$lib/components/Login.svelte';
-	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import Login from '$lib/components/auth/Login.svelte';
+	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
 	import Toast from '$lib/components/Toast.svelte';
 
 	interface Props {

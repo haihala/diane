@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { goto, beforeNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import MarkdownEditor from './MarkdownEditor.svelte';
-	import Button from './Button.svelte';
-	import BacklinksList from './BacklinksList.svelte';
-	import TagInput from './TagInput.svelte';
-	import PageLayout from './PageLayout.svelte';
+	import MarkdownEditor from '../editor/MarkdownEditor.svelte';
+	import Button from '../common/Button.svelte';
+	import BacklinksList from '../entries/BacklinksList.svelte';
+	import TagInput from '../editor/TagInput.svelte';
+	import PageLayout from '../layouts/PageLayout.svelte';
 	import { createEntry, updateEntry, getBacklinks } from '$lib/services/entries';
 	import type { Entry } from '$lib/types/Entry';
 	import { toast } from '$lib/services/toast';

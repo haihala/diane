@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from './Icon.svelte';
+	import Icon from '../common/Icon.svelte';
 
 	type IconName = 'arrow-right' | 'plus' | 'file' | 'x' | 'search' | 'grid' | 'settings';
 

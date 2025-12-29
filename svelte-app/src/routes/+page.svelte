@@ -1,6 +1,6 @@
 <script lang="ts">
-	import SearchBar from '$lib/components/SearchBar.svelte';
-	import PageLayout from '$lib/components/PageLayout.svelte';
+	import SearchBar from '$lib/components/search/SearchBar.svelte';
+	import PageLayout from '$lib/components/layouts/PageLayout.svelte';
 </script>
 
 <PageLayout>

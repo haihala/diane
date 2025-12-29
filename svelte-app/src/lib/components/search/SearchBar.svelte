@@ -3,9 +3,9 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import Icon from './Icon.svelte';
-	import SearchResultOption from './SearchResultOption.svelte';
-	import TagSelectorPopover from './TagSelectorPopover.svelte';
+	import Icon from '../common/Icon.svelte';
+	import SearchResultOption from '../search/SearchResultOption.svelte';
+	import TagSelectorPopover from '../popovers/TagSelectorPopover.svelte';
 	import {
 		searchEntries,
 		searchEntriesByTag,

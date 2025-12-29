@@ -3,10 +3,10 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { SvelteMap } from 'svelte/reactivity';
-	import Button from '$lib/components/Button.svelte';
-	import EmptyState from '$lib/components/EmptyState.svelte';
-	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
-	import EntrySearchModal from '$lib/components/EntrySearchModal.svelte';
+	import Button from '$lib/components/common/Button.svelte';
+	import EmptyState from '$lib/components/common/EmptyState.svelte';
+	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
+	import EntrySearchModal from '$lib/components/modals/EntrySearchModal.svelte';
 	import { getAllWikis, createWiki, deleteWiki, getWikiDisplayName } from '$lib/services/wikis';
 	import type { Entry } from '$lib/types/Entry';
 	import type { Wiki } from '$lib/types/Wiki';

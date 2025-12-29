@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Icon from './Icon.svelte';
-	import Tag from './Tag.svelte';
+	import Icon from '../common/Icon.svelte';
+	import Tag from '../common/Tag.svelte';
 	import type { Entry } from '$lib/types/Entry';
 
 	interface Props {

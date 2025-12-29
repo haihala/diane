@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PublicWikiEntry from '$lib/components/PublicWikiEntry.svelte';
+	import PublicWikiEntry from '$lib/components/wiki/PublicWikiEntry.svelte';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();

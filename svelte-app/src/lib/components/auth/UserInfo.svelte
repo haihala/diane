@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { user, userData, impersonatedUser, signOut, stopImpersonation } from '$lib/services/auth';
-	import Button from '$lib/components/Button.svelte';
+	import Button from '$lib/components/common/Button.svelte';
 
 	async function handleSignOut(): Promise<void> {
 		try {
