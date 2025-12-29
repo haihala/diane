@@ -314,7 +314,10 @@
 		if (option.type === 'new') {
 			// Navigate to new entry page with initial title
 			const encodedTitle = encodeURIComponent(inputValue.trim());
-			void goto(`${resolve('/entries/new')}?title=${encodedTitle}`);
+			const newEntryPath = resolve('/entries/new');
+			// Construct URL with query parameter - path is already resolved
+			// eslint-disable-next-line svelte/no-navigation-without-resolve
+			void goto(`${newEntryPath}?title=${encodedTitle}`);
 			isFocused = false;
 			onNewEntry?.();
 			inputValue = '';

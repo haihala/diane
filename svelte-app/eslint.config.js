@@ -66,7 +66,8 @@ export default defineConfig(
 		files: ['**/*.ts', '**/*.svelte.ts'],
 		languageOptions: {
 			parserOptions: {
-				projectService: true
+				project: './tsconfig.eslint.json',
+				tsconfigRootDir: import.meta.dirname
 			}
 		},
 		rules: {
@@ -89,7 +90,8 @@ export default defineConfig(
 		files: ['**/*.svelte'],
 		languageOptions: {
 			parserOptions: {
-				projectService: true,
+				project: './tsconfig.eslint.json',
+				tsconfigRootDir: import.meta.dirname,
 				extraFileExtensions: ['.svelte'],
 				parser: ts.parser,
 				svelteConfig

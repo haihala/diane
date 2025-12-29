@@ -53,7 +53,9 @@
 					.finally(() => {
 						isSavingBeforeNavigation = false;
 						if (navigation.to?.url) {
-							void goto(navigation.to.url);
+							// Use the full pathname since it's already resolved
+							// eslint-disable-next-line svelte/no-navigation-without-resolve
+							void goto(navigation.to.url.pathname);
 						}
 					});
 			}

@@ -1,0 +1,11 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"noEmit": true,
+		"skipLibCheck": true,
+		"incremental": true,
+		"strict": true
+	},
+	"include": ["src/**/*.ts", "src/**/*.svelte", "*.config.js", "*.config.ts"],
+	"exclude": ["node_modules", ".svelte-kit", "build"]
+}
