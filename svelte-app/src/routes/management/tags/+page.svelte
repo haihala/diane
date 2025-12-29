@@ -130,7 +130,7 @@
 	</div>
 {:else if sortedTags.length === 0}
 	<div class="empty-state">
-		<Icon name="grid" />
+		<Icon name="tag" />
 		<p>No tags found</p>
 		<span class="empty-hint">Tags will appear here once you add them to your entries</span>
 	</div>
@@ -255,6 +255,11 @@
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
+	}
+
+	.empty-state :global(img) {
+		filter: brightness(0) invert(1);
+		opacity: 0.5;
 	}
 
 	.empty-hint {

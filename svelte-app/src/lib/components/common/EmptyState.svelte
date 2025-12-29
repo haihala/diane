@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import Icon from '../common/Icon.svelte';
 
-	type IconName = 'arrow-right' | 'plus' | 'file' | 'x' | 'search' | 'grid' | 'settings';
+	type IconName = 'arrow-right' | 'plus' | 'file' | 'x' | 'search' | 'grid' | 'settings' | 'tag';
 
 	interface Props {
 		icon?: IconName;
@@ -37,8 +37,11 @@
 	}
 
 	.empty-icon {
-		color: var(--color-text-secondary);
 		opacity: 0.5;
+	}
+
+	.empty-icon :global(img) {
+		filter: brightness(0) invert(1);
 	}
 
 	.empty-message {

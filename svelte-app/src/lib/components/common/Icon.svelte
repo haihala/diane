@@ -1,5 +1,15 @@
 <script lang="ts">
-	type IconName = 'arrow-right' | 'plus' | 'file' | 'x' | 'search' | 'grid' | 'settings';
+	type IconName =
+		| 'arrow-right'
+		| 'plus'
+		| 'file'
+		| 'x'
+		| 'search'
+		| 'grid'
+		| 'settings'
+		| 'menu'
+		| 'tag'
+		| 'person';
 
 	interface Props {
 		name: IconName;

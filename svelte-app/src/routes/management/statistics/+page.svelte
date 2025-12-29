@@ -53,8 +53,8 @@
 {:else}
 	<div class="stats-grid">
 		<StatCard icon="file" value={stats.totalEntries} label="Total Entries" />
-		<StatCard icon="grid" value={stats.uniqueTags.size} label="Unique Tags" />
-		<StatCard icon="grid" value={stats.totalTags} label="Tags Applied" />
+		<StatCard icon="tag" value={stats.uniqueTags.size} label="Unique Tags" />
+		<StatCard icon="tag" value={stats.totalTags} label="Tags Applied" />
 	</div>
 {/if}
 

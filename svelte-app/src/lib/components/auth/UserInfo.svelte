@@ -20,21 +20,23 @@
 </script>
 
 <div class="user-section">
-	<div class="user-info">
-		{#if $impersonatedUser}
-			<div class="impersonation-info">
-				<span class="impersonation-badge">Impersonating</span>
-				<span class="user-email">{$impersonatedUser.userData.email}</span>
-				<Button size="sm" class="stop-button" onclick={handleStopImpersonation}>Stop</Button>
-			</div>
-		{:else}
-			{#if $userData?.isAdmin}
-				<span class="admin-badge">Admin</span>
+	<div class="user-container">
+		<div class="user-info">
+			{#if $impersonatedUser}
+				<div class="impersonation-info">
+					<span class="impersonation-badge">Impersonating</span>
+					<span class="user-email">{$impersonatedUser.userData.email}</span>
+					<Button size="sm" class="stop-button" onclick={handleStopImpersonation}>Stop</Button>
+				</div>
+			{:else}
+				{#if $userData?.isAdmin}
+					<span class="admin-badge">Admin</span>
+				{/if}
+				{#if $user}
+					<span class="user-email">{$user.email}</span>
+				{/if}
 			{/if}
-			{#if $user}
-				<span class="user-email">{$user.email}</span>
-			{/if}
-		{/if}
+		</div>
 	</div>
 	<Button variant="secondary" size="sm" onclick={handleSignOut}>Sign Out</Button>
 </div>
@@ -44,6 +46,11 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-md);
+	}
+
+	.user-container {
+		display: flex;
+		align-items: center;
 		padding: var(--spacing-sm) var(--spacing-md);
 		background: var(--color-surface);
 		border-radius: var(--radius-lg);
@@ -91,13 +98,21 @@
 		background: #f57c00;
 	}
 
+	/* Override secondary button styling to match settings button */
+	.user-section :global(.button-secondary) {
+		background: var(--color-surface);
+		color: white;
+	}
+
+	.user-section :global(.button-secondary:hover:not(:disabled)) {
+		background: var(--color-bg-secondary);
+		border-color: var(--color-primary);
+		color: white;
+	}
+
 	/* Mobile responsiveness */
 	@media (max-width: 768px) {
-		.user-section {
-			padding: var(--spacing-xs) var(--spacing-sm);
-		}
-
-		.user-info {
+		.user-container {
 			display: none;
 		}
 	}

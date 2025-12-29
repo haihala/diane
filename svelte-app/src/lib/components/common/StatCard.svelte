@@ -1,7 +1,16 @@
 <script lang="ts">
 	import Icon from '../common/Icon.svelte';
 
-	type IconName = 'arrow-right' | 'plus' | 'file' | 'x' | 'search' | 'grid' | 'settings';
+	type IconName =
+		| 'arrow-right'
+		| 'plus'
+		| 'file'
+		| 'x'
+		| 'search'
+		| 'grid'
+		| 'settings'
+		| 'tag'
+		| 'person';
 
 	interface Props {
 		icon: IconName;
@@ -42,6 +51,10 @@
 		background: var(--color-primary);
 		border-radius: var(--radius-md);
 		color: white;
+	}
+
+	.stat-icon :global(img) {
+		filter: brightness(0) invert(1);
 	}
 
 	.stat-content {

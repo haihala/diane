@@ -58,9 +58,9 @@
 	<EmptyState icon="x" message={error} />
 {:else}
 	<div class="stats-grid">
-		<StatCard icon="grid" value={stats.totalUsers} label="Total Users" />
-		<StatCard icon="grid" value={stats.adminUsers} label="Admin Users" />
-		<StatCard icon="grid" value={stats.activeUsers} label="Active Users" />
+		<StatCard icon="person" value={stats.totalUsers} label="Total Users" />
+		<StatCard icon="person" value={stats.adminUsers} label="Admin Users" />
+		<StatCard icon="person" value={stats.activeUsers} label="Active Users" />
 		<StatCard icon="file" value={stats.totalEntries} label="Total Entries" />
 	</div>
 {/if}

@@ -95,7 +95,7 @@
 >
 	{#if availableTags.length === 0}
 		<EmptyState
-			icon="search"
+			icon="tag"
 			message={searchTerm.trim() ? `No existing tags match "${searchTerm}"` : 'No tags yet'}
 		>
 			{#snippet action()}

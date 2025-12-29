@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { user, userData, impersonatedUser } from '$lib/services/auth';
 	import UserInfo from '$lib/components/auth/UserInfo.svelte';
+	import Icon from '$lib/components/common/Icon.svelte';
 	import type { Snippet } from 'svelte';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
@@ -16,8 +17,18 @@
 		$impersonatedUser ? $impersonatedUser.userData.isAdmin : ($userData?.isAdmin ?? false)
 	);
 
+	let mobileMenuOpen = $state(false);
+
 	function isActive(path: string): boolean {
 		return page.url.pathname === path;
+	}
+
+	function toggleMobileMenu(): void {
+		mobileMenuOpen = !mobileMenuOpen;
+	}
+
+	function closeMobileMenu(): void {
+		mobileMenuOpen = false;
 	}
 </script>
 
@@ -25,6 +36,9 @@
 	<!-- Top Header -->
 	<header class="admin-header">
 		<div class="header-left">
+			<button class="mobile-menu-toggle" onclick={toggleMobileMenu} aria-label="Toggle menu">
+				<Icon name={mobileMenuOpen ? 'x' : 'menu'} size={20} />
+			</button>
 			<a href={resolve('/')} class="site-title">Diane</a>
 			<span class="header-divider">|</span>
 			<a href={resolve('/management')} class="page-name" class:active={isActive('/management')}>
@@ -40,7 +54,7 @@
 
 	<div class="admin-body">
 		<!-- Left Sidebar -->
-		<nav class="admin-sidebar">
+		<nav class="admin-sidebar" class:mobile-open={mobileMenuOpen}>
 			{#if isAdmin}
 				<div class="sidebar-section">
 					<h3 class="section-header">Admin</h3>
@@ -48,6 +62,7 @@
 						href={resolve('/management/users')}
 						class="nav-item"
 						class:active={isActive('/management/users')}
+						onclick={closeMobileMenu}
 					>
 						Users
 					</a>
@@ -55,6 +70,7 @@
 						href={resolve('/management/admin-statistics')}
 						class="nav-item"
 						class:active={isActive('/management/admin-statistics')}
+						onclick={closeMobileMenu}
 					>
 						Statistics
 					</a>
@@ -67,6 +83,7 @@
 					href={resolve('/management/entries')}
 					class="nav-item"
 					class:active={isActive('/management/entries')}
+					onclick={closeMobileMenu}
 				>
 					Entries
 				</a>
@@ -74,6 +91,7 @@
 					href={resolve('/management/tags')}
 					class="nav-item"
 					class:active={isActive('/management/tags')}
+					onclick={closeMobileMenu}
 				>
 					Tags
 				</a>
@@ -81,6 +99,7 @@
 					href={resolve('/management/statistics')}
 					class="nav-item"
 					class:active={isActive('/management/statistics')}
+					onclick={closeMobileMenu}
 				>
 					Statistics
 				</a>
@@ -92,11 +111,18 @@
 					href={resolve('/management/wikis')}
 					class="nav-item"
 					class:active={isActive('/management/wikis')}
+					onclick={closeMobileMenu}
 				>
 					Wikis
 				</a>
 			</div>
 		</nav>
+
+		<!-- Overlay for mobile menu -->
+		{#if mobileMenuOpen}
+			<button class="mobile-overlay" onclick={closeMobileMenu} aria-label="Close menu" type="button"
+			></button>
+		{/if}
 
 		<!-- Main Content -->
 		<main class="admin-content">
@@ -126,6 +152,24 @@
 		display: flex;
 		align-items: center;
 		gap: var(--spacing-md);
+	}
+
+	.mobile-menu-toggle {
+		display: none;
+		background: none;
+		border: none;
+		cursor: pointer;
+		padding: var(--spacing-xs);
+		transition: all 0.2s ease;
+	}
+
+	.mobile-menu-toggle :global(img) {
+		filter: brightness(0) invert(1);
+	}
+
+	.mobile-menu-toggle:hover :global(img) {
+		filter: brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(2476%) hue-rotate(231deg)
+			brightness(102%) contrast(102%);
 	}
 
 	.site-title {
@@ -175,6 +219,7 @@
 	.admin-body {
 		display: flex;
 		flex: 1;
+		position: relative;
 	}
 
 	.admin-sidebar {
@@ -182,6 +227,7 @@
 		background: var(--color-surface);
 		border-right: 1px solid var(--color-border);
 		padding: var(--spacing-lg) 0;
+		overflow-y: auto;
 	}
 
 	.sidebar-section {
@@ -232,27 +278,95 @@
 		overflow-y: auto;
 	}
 
+	.mobile-overlay {
+		display: none;
+		border: none;
+		padding: 0;
+		background: none;
+		cursor: pointer;
+	}
+
 	/* Mobile responsiveness */
 	@media (max-width: 768px) {
 		.admin-header {
-			flex-direction: column;
-			gap: var(--spacing-md);
-			align-items: flex-start;
+			padding: var(--spacing-sm) var(--spacing-md);
 		}
 
-		.header-right {
-			width: 100%;
-			justify-content: space-between;
+		.header-left {
+			gap: var(--spacing-sm);
 		}
 
-		.admin-sidebar {
-			width: 100%;
-			border-right: none;
-			border-bottom: 1px solid var(--color-border);
+		.mobile-menu-toggle {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.site-title {
+			font-size: var(--font-size-lg);
+		}
+
+		.header-divider {
+			font-size: var(--font-size-sm);
+		}
+
+		.page-name {
+			font-size: var(--font-size-md);
 		}
 
 		.admin-body {
-			flex-direction: column;
+			position: relative;
+		}
+
+		.admin-sidebar {
+			position: fixed;
+			top: 0;
+			left: 0;
+			bottom: 0;
+			width: 240px;
+			z-index: 1000;
+			transform: translateX(-100%);
+			transition: transform 0.3s ease;
+			padding: var(--spacing-md) 0;
+		}
+
+		.admin-sidebar.mobile-open {
+			transform: translateX(0);
+		}
+
+		.mobile-overlay {
+			display: block;
+			position: fixed;
+			top: 0;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			width: 100%;
+			height: 100%;
+			background: rgba(0, 0, 0, 0.5);
+			z-index: 999;
+			border: none;
+			padding: 0;
+			cursor: pointer;
+		}
+
+		.admin-content {
+			padding: var(--spacing-md);
+			width: 100%;
+		}
+	}
+
+	@media (max-width: 480px) {
+		.admin-header {
+			padding: var(--spacing-xs) var(--spacing-sm);
+		}
+
+		.site-title {
+			font-size: var(--font-size-md);
+		}
+
+		.admin-content {
+			padding: var(--spacing-sm);
 		}
 	}
 </style>
