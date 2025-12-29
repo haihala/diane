@@ -6,20 +6,12 @@
 	import { getAllUsers, type UserWithStats } from '$lib/services/users';
 	import LoadingSpinner from '$lib/components/common/LoadingSpinner.svelte';
 	import EmptyState from '$lib/components/common/EmptyState.svelte';
-	import StatCard from '$lib/components/common/StatCard.svelte';
 	import Button from '$lib/components/common/Button.svelte';
 
 	let users: UserWithStats[] = $state([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let impersonating = $state<string | null>(null);
-
-	const stats = $derived({
-		totalUsers: users.length,
-		adminUsers: users.filter((u) => u.isAdmin).length,
-		activeUsers: users.filter((u) => u.entryCount > 0).length,
-		totalEntries: users.reduce((sum, u) => sum + u.entryCount, 0)
-	});
 
 	async function loadUsers(): Promise<void> {
 		try {
@@ -73,7 +65,7 @@
 
 <div class="page-header">
 	<h1 class="page-title">Users</h1>
-	<p class="page-subtitle">Manage users and view statistics</p>
+	<p class="page-subtitle">Manage users and impersonation</p>
 </div>
 
 {#if loading}
@@ -81,13 +73,6 @@
 {:else if error}
 	<EmptyState icon="x" message={error} />
 {:else}
-	<div class="stats-grid">
-		<StatCard icon="grid" value={stats.totalUsers} label="Total Users" />
-		<StatCard icon="grid" value={stats.adminUsers} label="Admin Users" />
-		<StatCard icon="grid" value={stats.activeUsers} label="Active Users" />
-		<StatCard icon="file" value={stats.totalEntries} label="Total Entries" />
-	</div>
-
 	<div class="users-section">
 		<h2 class="section-title">All Users</h2>
 		<div class="users-table-container">
@@ -153,13 +138,6 @@
 	.page-subtitle {
 		font-size: var(--font-size-md);
 		color: var(--color-text-secondary);
-	}
-
-	.stats-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: var(--spacing-lg);
-		margin-bottom: var(--spacing-3xl);
 	}
 
 	.users-section {
@@ -255,10 +233,6 @@
 
 	/* Mobile responsiveness */
 	@media (max-width: 768px) {
-		.stats-grid {
-			grid-template-columns: 1fr;
-		}
-
 		.users-table-container {
 			overflow-x: auto;
 		}

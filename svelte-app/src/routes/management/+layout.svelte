@@ -41,43 +41,50 @@
 	<div class="admin-body">
 		<!-- Left Sidebar -->
 		<nav class="admin-sidebar">
-			{#if isAdmin}
-				<div class="sidebar-section">
-					<h3 class="section-header">Admin</h3>
-					<a
-						href={resolve('/management/users')}
-						class="nav-item"
-						class:active={isActive('/management/users')}
-					>
-						Users
-					</a>
-				</div>
-			{/if}
-
+		{#if isAdmin}
 			<div class="sidebar-section">
-				<h3 class="section-header">Personal</h3>
+				<h3 class="section-header">Admin</h3>
 				<a
-					href={resolve('/management/entries')}
+					href={resolve('/management/users')}
 					class="nav-item"
-					class:active={isActive('/management/entries')}
+					class:active={isActive('/management/users')}
 				>
-					Entries
+					Users
 				</a>
 				<a
-					href={resolve('/management/tags')}
+					href={resolve('/management/admin-statistics')}
 					class="nav-item"
-					class:active={isActive('/management/tags')}
-				>
-					Tags
-				</a>
-				<a
-					href={resolve('/management/statistics')}
-					class="nav-item"
-					class:active={isActive('/management/statistics')}
+					class:active={isActive('/management/admin-statistics')}
 				>
 					Statistics
 				</a>
 			</div>
+		{/if}
+
+		<div class="sidebar-section">
+			<h3 class="section-header">Personal</h3>
+			<a
+				href={resolve('/management/entries')}
+				class="nav-item"
+				class:active={isActive('/management/entries')}
+			>
+				Entries
+			</a>
+			<a
+				href={resolve('/management/tags')}
+				class="nav-item"
+				class:active={isActive('/management/tags')}
+			>
+				Tags
+			</a>
+			<a
+				href={resolve('/management/statistics')}
+				class="nav-item"
+				class:active={isActive('/management/statistics')}
+			>
+				Statistics
+			</a>
+		</div>
 
 			<div class="sidebar-section">
 				<h3 class="section-header">Shared</h3>
