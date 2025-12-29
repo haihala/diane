@@ -2,6 +2,7 @@
 	import { getAllTags, renameTag, deleteTag } from '$lib/services/entries';
 	import { onMount } from 'svelte';
 	import Icon from '$lib/components/Icon.svelte';
+	import { toast } from '$lib/services/toast';
 
 	let tags = $state<Map<string, number>>(new Map());
 	let loading = $state(true);
@@ -62,10 +63,12 @@
 			error = null;
 			await renameTag(oldTag, trimmedNewName);
 			await loadData();
+			toast.success(`Tag renamed from "${oldTag}" to "${trimmedNewName}"`);
 			cancelEditing();
 		} catch (err) {
 			console.error('Error renaming tag:', err);
 			error = 'Failed to rename tag. Please try again.';
+			toast.error('Failed to rename tag. Please try again.');
 		} finally {
 			processingTag = null;
 		}

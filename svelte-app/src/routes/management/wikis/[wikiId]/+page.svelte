@@ -8,6 +8,7 @@
 	import { extractEntryIdsFromContent, loadEntryTitles } from '$lib/services/entries';
 	import { parseMarkdown } from '$lib/services/markdown';
 	import { updateWikiNameAndSlug } from '$lib/services/wikis';
+	import { toast } from '$lib/services/toast';
 	import type { PageData } from './$types';
 
 	const { data }: { data: PageData } = $props();
@@ -85,8 +86,10 @@
 			data.wiki.slug = editSlug;
 
 			editing = false;
+			toast.success('Wiki updated successfully');
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to update wiki';
+			toast.error('Failed to update wiki');
 		} finally {
 			saving = false;
 		}

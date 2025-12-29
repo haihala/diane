@@ -8,6 +8,7 @@
 	import PageLayout from './PageLayout.svelte';
 	import { createEntry, updateEntry, getBacklinks } from '$lib/services/entries';
 	import type { Entry } from '$lib/types/Entry';
+	import { toast } from '$lib/services/toast';
 
 	interface Props {
 		initialTitle?: string;
@@ -152,9 +153,11 @@
 						content: content.trim()
 					});
 					hasUnsavedChanges = false;
+					toast.success('Entry saved successfully');
 				} catch (err) {
 					console.error('Failed to save entry:', err);
 					error = err instanceof Error ? err.message : 'Failed to save entry';
+					toast.error('Failed to save entry');
 					isSaving = false;
 					// Don't navigate if save failed
 					return;
@@ -193,12 +196,14 @@
 					title: title.trim(),
 					content: content.trim()
 				});
+				toast.success('Entry saved successfully');
 			} else {
 				// Create new entry
 				await createEntry({
 					title: title.trim(),
 					content: content.trim()
 				});
+				toast.success('Entry created successfully');
 			}
 			// Navigate back to home after save
 			isExplicitNavigation = true;
@@ -206,6 +211,7 @@
 		} catch (err) {
 			console.error('Failed to save entry:', err);
 			error = err instanceof Error ? err.message : 'Failed to save entry';
+			toast.error('Failed to save entry');
 			isSaving = false;
 		}
 	}
@@ -262,9 +268,11 @@
 					content: content.trim()
 				});
 				hasUnsavedChanges = false;
+				toast.success('Entry saved successfully');
 			} catch (err) {
 				console.error('Failed to save entry:', err);
 				error = err instanceof Error ? err.message : 'Failed to save entry';
+				toast.error('Failed to save entry');
 				throw err; // Re-throw to let caller know save failed
 			} finally {
 				isSaving = false;

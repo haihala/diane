@@ -7,6 +7,7 @@
 	import { initializeAuth, user, loading } from '$lib/services/auth';
 	import Login from '$lib/components/Login.svelte';
 	import LoadingSpinner from '$lib/components/LoadingSpinner.svelte';
+	import Toast from '$lib/components/Toast.svelte';
 
 	interface Props {
 		children: Snippet;
@@ -57,6 +58,9 @@
 {:else}
 	{@render children()}
 {/if}
+
+<!-- Toast notifications -->
+<Toast />
 
 <style>
 	.loading-container {

@@ -5,6 +5,7 @@
 	import BacklinksList from './BacklinksList.svelte';
 	import TagInput from './TagInput.svelte';
 	import { createEntry, updateEntry, getBacklinks } from '$lib/services/entries';
+	import { toast } from '$lib/services/toast';
 	import type { Entry } from '$lib/types/Entry';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -115,10 +116,12 @@
 					content: content.trim()
 				});
 				hasUnsavedChanges = false;
+				toast.success('Entry saved successfully');
 				onSave?.();
 			} catch (err) {
 				console.error('Failed to save entry:', err);
 				error = err instanceof Error ? err.message : 'Failed to save entry';
+				toast.error('Failed to save entry');
 				isSaving = false;
 				// Don't close if save failed
 				return;
@@ -158,18 +161,21 @@
 					title: title.trim(),
 					content: content.trim()
 				});
+				toast.success('Entry saved successfully');
 			} else {
 				// Create new entry
 				await createEntry({
 					title: title.trim(),
 					content: content.trim()
 				});
+				toast.success('Entry created successfully');
 			}
 			onSave?.();
 			await handleClose();
 		} catch (err) {
 			console.error('Failed to save entry:', err);
 			error = err instanceof Error ? err.message : 'Failed to save entry';
+			toast.error('Failed to save entry');
 			isSaving = false;
 		}
 	}
@@ -239,10 +245,12 @@
 					content: content.trim()
 				});
 				hasUnsavedChanges = false;
+				toast.success('Entry saved successfully');
 				onSave?.();
 			} catch (err) {
 				console.error('Failed to save entry:', err);
 				error = err instanceof Error ? err.message : 'Failed to save entry';
+				toast.error('Failed to save entry');
 				throw err; // Re-throw to let caller know save failed
 			} finally {
 				isSaving = false;
