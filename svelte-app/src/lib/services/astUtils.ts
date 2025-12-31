@@ -117,8 +117,18 @@ export function getListContext(
 	// Calculate position within the list item
 	const posInItem = pos - listItem.start;
 
-	// Check if item is empty (only whitespace)
-	const isEmptyItem = itemText.trim().length === 0;
+	// Check if item is empty (only whitespace or just the marker)
+	// We need to check if the children content is empty, not the full text
+	// because astToText includes the marker (e.g., "- " for bullet lists)
+	const childrenText = listItem.children
+		?.map((child) => {
+			if (child.type === 'text') {
+				return child.text ?? '';
+			}
+			return astToText(child);
+		})
+		.join('');
+	const isEmptyItem = (childrenText?.trim().length ?? 0) === 0;
 
 	// Get text before and after cursor
 	const textBeforeCursor = itemText.substring(0, posInItem);

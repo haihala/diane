@@ -25,6 +25,7 @@ export const titleSchema = z
 
 // AST Node validation (recursive schema for contentAST)
 // We use z.lazy() for recursive types
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const astNodeSchema: z.ZodType<any> = z.lazy(() =>
 	z.object({
 		type: z.string(),

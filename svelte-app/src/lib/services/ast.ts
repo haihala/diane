@@ -35,6 +35,7 @@ export interface ASTNode {
 	language?: string; // For code-block
 	listType?: 'bullet' | 'ordered'; // For list and list-item
 	listLevel?: number; // For list-item (indentation)
+	hasTrailingNewline?: boolean; // For block-level nodes that may have trailing newlines
 
 	// Leaf nodes only
 	text?: string; // For text nodes
@@ -72,6 +73,7 @@ export function tokensToAST(tokens: Token[]): ASTNode {
 				start: token.start,
 				end: token.end,
 				level: token.level,
+				hasTrailingNewline: hasNewline,
 				children: parseInlineTokens(token.content, contentOffset)
 			};
 			document.children!.push(heading);
@@ -212,15 +214,13 @@ export function tokensToAST(tokens: Token[]): ASTNode {
 function parseInlineTokens(text: string, baseOffset: number): ASTNode[] {
 	const tokenizer = new MarkdownTokenizer(text);
 	const tokens = tokenizer.tokenize();
-	
+
 	const nodes: ASTNode[] = [];
-	
+
 	for (const token of tokens) {
 		// Only process inline tokens
 		if (
-			['text', 'bold', 'italic', 'strikethrough', 'code', 'link', 'wiki-link'].includes(
-				token.type
-			)
+			['text', 'bold', 'italic', 'strikethrough', 'code', 'link', 'wiki-link'].includes(token.type)
 		) {
 			// Adjust token positions to account for baseOffset
 			const adjustedToken = {
@@ -228,7 +228,7 @@ function parseInlineTokens(text: string, baseOffset: number): ASTNode[] {
 				start: baseOffset + token.start,
 				end: baseOffset + token.end
 			};
-			
+
 			// Convert token to AST node
 			const node = tokenToInlineNode(adjustedToken);
 			nodes.push(node);
@@ -242,15 +242,17 @@ function parseInlineTokens(text: string, baseOffset: number): ASTNode[] {
 			});
 		}
 	}
-	
-	return nodes.length > 0 ? nodes : [
-		{
-			type: 'text',
-			start: baseOffset,
-			end: baseOffset + text.length,
-			text
-		}
-	];
+
+	return nodes.length > 0
+		? nodes
+		: [
+				{
+					type: 'text',
+					start: baseOffset,
+					end: baseOffset + text.length,
+					text
+				}
+			];
 }
 
 /**
@@ -361,38 +363,19 @@ export function astToText(node: ASTNode): string {
 	if (node.type === 'document') {
 		const children = node.children ?? [];
 
-		// Build the text directly, preserving empty paragraphs as additional newlines
+		// Build the text with appropriate separators between blocks
 		let result = '';
-		let needsSeparator = false;
 
 		for (let i = 0; i < children.length; i++) {
 			const child = children[i];
-			const text = astToText(child);
-			const trimmedText = text.trim();
+			const childText = astToText(child);
 
-			// For non-empty blocks (blocks with actual content)
-			if (trimmedText !== '') {
-				if (needsSeparator) {
-					// If the block starts with newline(s), we need fewer separator newlines
-					const leadingNewlines = text.match(/^\n*/)?.[0].length ?? 0;
-					const separatorNeeded = Math.max(0, 2 - leadingNewlines);
-					result += '\n'.repeat(separatorNeeded);
-				}
-				result += text;
-				needsSeparator = true;
-			} else if (text !== '') {
-				// Block with only whitespace/newlines
-				// These act as extra spacing between blocks
-				if (needsSeparator) {
-					// Add one newline for block separation, plus the content
-					result = `${result}\n${text}`;
-					// Don't need separator after this since the whitespace includes separation
-					needsSeparator = false;
-				} else {
-					// At the start, just add the whitespace
-					result += text;
-					needsSeparator = false;
-				}
+			result += childText;
+
+			// Add newline separator after each block (except the last one)
+			// unless the block already ends with a newline
+			if (i < children.length - 1 && !childText.endsWith('\n')) {
+				result += '\n';
 			}
 		}
 
@@ -410,7 +393,9 @@ export function astToText(node: ASTNode): string {
 	if (node.type === 'heading') {
 		const prefix = '#'.repeat(node.level ?? 1);
 		const content = node.children?.map((child) => astToText(child)).join('') ?? '';
-		return `${prefix} ${content}`;
+		// Include trailing newline only if it was present in the original
+		const suffix = node.hasTrailingNewline ? '\n' : '';
+		return `${prefix} ${content}${suffix}`;
 	}
 
 	if (node.type === 'list') {
@@ -471,12 +456,12 @@ export function astToText(node: ASTNode): string {
 	if (node.type === 'wiki-link') {
 		const entryId = node.entryId ?? '';
 		const displayName = node.children?.[0]?.text ?? '';
-		
+
 		// If display name differs from entry ID, include it in the syntax
 		if (displayName && displayName !== entryId) {
 			return `[[${entryId}|${displayName}]]`;
 		}
-		
+
 		return `[[${entryId}]]`;
 	}
 
@@ -501,7 +486,9 @@ export function renderASTWithCursor(
 	wikiSlug?: string
 ): string {
 	let cursorInserted = false;
+	let hasRawInlineElement = false; // Track if any inline element is rendered as raw
 	const cursorSpan = '<span class="cursor" data-cursor="true"></span>';
+	const totalTextLength = astToText(node).length;
 
 	function renderNode(node: ASTNode): string {
 		if (node.type === 'document') {
@@ -509,32 +496,61 @@ export function renderASTWithCursor(
 		}
 
 		if (node.type === 'paragraph') {
+			// Reset raw inline element tracking for this paragraph
+			const paragraphHadRawElement = hasRawInlineElement;
+			hasRawInlineElement = false;
+
 			// Render paragraph content, splitting at newlines into separate <p> tags
 			const content = node.children?.map((child) => renderNode(child)).join('') ?? '';
 
-			// Special case: if paragraph contains only newlines/whitespace and cursor,
-			// render as a single <p> tag to avoid creating extra blank lines
-			const contentWithoutCursor = content.replace(/<span class="cursor"[^>]*><\/span>/g, '');
-			const isOnlyNewlinesAndWhitespace =
-				contentWithoutCursor.replace(/<!-- NL -->/g, '').trim() === '';
-
-			if (isOnlyNewlinesAndWhitespace) {
-				// Just render as single <p> with cursor
-				// Remove the newline markers since we're not splitting
-				const cleanContent = content.replace(/<!-- NL -->/g, '');
-				return `<p>${cleanContent}</p>`;
-			}
+			// Remember if this paragraph had any raw inline elements
+			const currentParagraphHasRaw = hasRawInlineElement;
+			// Restore previous state
+			hasRawInlineElement = paragraphHadRawElement;
 
 			// If content contains <!-- NL --> markers (from text nodes), split into multiple <p> tags
 			if (content.includes('<!-- NL -->')) {
 				const lines = content.split('<!-- NL -->');
+				const cursorSpan = '<span class="cursor" data-cursor="true"></span>';
 
-				// Remove the last empty element if the paragraph ends with a newline
-				// e.g., "text\n" splits to ["text", ""] - we want just ["text"]
-				// But "\n" splits to ["", ""] - we want just [""]
-				// And "text\nmore" splits to ["text", "more"] - keep both
-				if (lines.length > 1 && lines[lines.length - 1] === '') {
+				// Check if there's any actual content (not just empty strings and cursor)
+				const hasContent = lines.some((line) => {
+					const withoutCursor = line.replace(cursorSpan, '');
+					return withoutCursor.trim() !== '';
+				});
+
+				// Only remove leading empty elements if there's actual content after them
+				// "\ntext" -> ["", "text"] -> want ["text"] (remove leading empty)
+				// "\n\n" -> ["", "", ""] -> want ["", ""] (keep empty paragraphs)
+				if (hasContent) {
+					while (lines.length > 0 && lines[0] === '') {
+						lines.shift();
+					}
+				}
+
+				// Handle trailing empty element or cursor-only element
+				const lastIdx = lines.length - 1;
+
+				// Check if last element is just the cursor (or empty)
+				if (lastIdx > 0 && lines[lastIdx].trim() === cursorSpan) {
+					// If the previous line is empty or whitespace-only, merge cursor into it
+					// Otherwise, keep cursor separate (for cases like "content\n{cursor}")
+					const prevLineContent = lines[lastIdx - 1].replace(cursorSpan, '').trim();
+					if (prevLineContent === '') {
+						// Merge cursor into the previous line (for cases like empty paragraphs)
+						lines[lastIdx - 1] += lines[lastIdx];
+						lines.pop();
+					}
+					// If previous line has content, keep cursor separate
+				} else if (lines[lastIdx] === '' && !currentParagraphHasRaw) {
+					// Remove trailing empty element only if no inline element is shown as raw
+					// (content ended with newline but cursor not in trailing paragraph and not editing raw inline elements)
 					lines.pop();
+				}
+
+				// If all lines were empty after processing, render a single empty paragraph
+				if (lines.length === 0) {
+					return '<p></p>';
 				}
 
 				return lines.map((line) => `<p>${line}</p>`).join('');
@@ -544,18 +560,35 @@ export function renderASTWithCursor(
 		}
 
 		if (node.type === 'heading') {
-			// Check if cursor is before the first child (in the markdown syntax area like "# ")
-			const firstChild = node.children?.[0];
-			if (
-				!cursorInserted &&
-				firstChild &&
-				cursorPos >= node.start &&
-				cursorPos < firstChild.start
-			) {
-				// Place cursor at the beginning of the heading content
+			// Check if cursor is anywhere within the heading line (excluding trailing newline)
+			// If cursor is on the heading line, show raw markdown text for easier editing
+			const headingEndExcludingNewline = node.hasTrailingNewline ? node.end - 1 : node.end;
+
+			if (!cursorInserted && cursorPos >= node.start && cursorPos <= headingEndExcludingNewline) {
+				// Render as raw markdown text in a paragraph when cursor is on the heading line
 				cursorInserted = true;
-				const content = node.children?.map((child) => renderNode(child)).join('') ?? '';
-				return `<h${node.level}>${cursorSpan}${content}</h${node.level}>`;
+				const rawText = astToText(node);
+				// Strip the trailing newline from raw text if present
+				const rawTextWithoutNewline = node.hasTrailingNewline ? rawText.slice(0, -1) : rawText;
+
+				let html = '<p>';
+
+				// Insert cursor at the correct position within the raw text
+				for (let i = 0; i < rawTextWithoutNewline.length; i++) {
+					const charPos = node.start + i;
+					if (charPos === cursorPos) {
+						html += cursorSpan;
+					}
+					html += escapeHtml(rawTextWithoutNewline[i]);
+				}
+
+				// Check if cursor should be at the end
+				if (node.start + rawTextWithoutNewline.length === cursorPos) {
+					html += cursorSpan;
+				}
+
+				html += '</p>';
+				return html;
 			}
 
 			const content = node.children?.map((child) => renderNode(child)).join('') ?? '';
@@ -564,14 +597,67 @@ export function renderASTWithCursor(
 
 		if (node.type === 'list') {
 			const tag = node.listType === 'ordered' ? 'ol' : 'ul';
-			const items = node.children?.map((child) => renderNode(child)).join('') ?? '';
-			return `<${tag}>${items}</${tag}>`;
+			const items = node.children ?? [];
+			
+			// Build nested list structure from flat list items
+			function buildNestedList(items: ASTNode[], level: number = 0): string {
+				if (items.length === 0) return '';
+				
+				let html = `<${tag}>`;
+				let i = 0;
+				
+				while (i < items.length) {
+					const item = items[i];
+					const currentLevel = item.listLevel ?? 0;
+					
+					// Skip items that are not at the current level
+					if (currentLevel < level) {
+						break;
+					}
+					
+					if (currentLevel > level) {
+						// This item is deeper than current level, skip it for now
+						i++;
+						continue;
+					}
+					
+					// Render list item content
+					const content = item.children?.map((child) => renderNode(child)).join('') ?? '';
+					html += `<li>${content}</li>`;
+					
+					// Look ahead for items at a deeper level immediately following this item
+					const nextItem = items[i + 1];
+					if (nextItem && (nextItem.listLevel ?? 0) > currentLevel) {
+						// Collect all nested items
+						const nestedItems: ASTNode[] = [];
+						let j = i + 1;
+						while (j < items.length && (items[j].listLevel ?? 0) > currentLevel) {
+							nestedItems.push(items[j]);
+							j++;
+						}
+						
+						// Create a wrapper list item for the nested list
+						html += `<li>`;
+						html += buildNestedList(nestedItems, currentLevel + 1);
+						html += `</li>`;
+						i = j;
+					} else {
+						i++;
+					}
+				}
+				
+				html += `</${tag}>`;
+				return html;
+			}
+			
+			return buildNestedList(items);
 		}
 
+		// This case should be unreachable now as list items are rendered within the list node
+		// Keeping it for backwards compatibility if needed
 		if (node.type === 'list-item') {
-			const marginLeft = (node.listLevel ?? 0) * LIST_INDENT_PX_PER_LEVEL;
 			const content = node.children?.map((child) => renderNode(child)).join('') ?? '';
-			return `<li style="margin-left: ${marginLeft}px">${content}</li>`;
+			return `<li>${content}</li>`;
 		}
 
 		if (node.type === 'code-block') {
@@ -605,11 +691,76 @@ export function renderASTWithCursor(
 		}
 
 		if (node.type === 'bold') {
+			// Check if cursor is anywhere within the bold node (including the ** markers)
+			// OR at node.end, but only if we're not at the very end of the document
+			// (at the end of document, render normally so user sees the final result)
+			const cursorWithinBold = cursorPos >= node.start && cursorPos < node.end;
+			const cursorAtEnd = cursorPos === node.end;
+			const atDocumentEnd = cursorPos === totalTextLength;
+			const shouldShowRaw = cursorWithinBold || (cursorAtEnd && !atDocumentEnd && !cursorInserted);
+
+			if (shouldShowRaw) {
+				hasRawInlineElement = true; // Mark that this paragraph has raw inline elements
+				const rawText = astToText(node); // This will be "**content**"
+				let html = '';
+
+				// Insert cursor at the correct position within the raw text (only if not already inserted)
+				for (let i = 0; i < rawText.length; i++) {
+					const charPos = node.start + i;
+					if (!cursorInserted && charPos === cursorPos) {
+						html += cursorSpan;
+						cursorInserted = true;
+					}
+					html += escapeHtml(rawText[i]);
+				}
+
+				// Check if cursor should be at the end
+				if (!cursorInserted && node.start + rawText.length === cursorPos) {
+					html += cursorSpan;
+					cursorInserted = true;
+				}
+
+				return html;
+			}
+
 			const content = node.children?.map((child) => renderNode(child)).join('') ?? '';
 			return `<strong>${content}</strong>`;
 		}
 
 		if (node.type === 'italic') {
+			// Check if cursor is anywhere within the italic node (including the * markers)
+			// OR at node.end, but only if we're not at the very end of the document
+			// (at the end of document, render normally so user sees the final result)
+			const cursorWithinItalic = cursorPos >= node.start && cursorPos < node.end;
+			const cursorAtEnd = cursorPos === node.end;
+			const atDocumentEnd = cursorPos === totalTextLength;
+			const shouldShowRaw =
+				cursorWithinItalic || (cursorAtEnd && !atDocumentEnd && !cursorInserted);
+
+			if (shouldShowRaw) {
+				hasRawInlineElement = true; // Mark that this paragraph has raw inline elements
+				const rawText = astToText(node); // This will be "*content*"
+				let html = '';
+
+				// Insert cursor at the correct position within the raw text (only if not already inserted)
+				for (let i = 0; i < rawText.length; i++) {
+					const charPos = node.start + i;
+					if (!cursorInserted && charPos === cursorPos) {
+						html += cursorSpan;
+						cursorInserted = true;
+					}
+					html += escapeHtml(rawText[i]);
+				}
+
+				// Check if cursor should be at the end
+				if (!cursorInserted && node.start + rawText.length === cursorPos) {
+					html += cursorSpan;
+					cursorInserted = true;
+				}
+
+				return html;
+			}
+
 			const content = node.children?.map((child) => renderNode(child)).join('') ?? '';
 			return `<em>${content}</em>`;
 		}
@@ -656,7 +807,7 @@ export function renderASTWithCursor(
 			// Determine display name:
 			// Get the content from children (which is either custom display name or entryId)
 			const contentFromChildren = node.children?.[0]?.text ?? entryId;
-			
+
 			// If content equals entryId, it means no custom display name was provided
 			// In that case, use the title from the map
 			// Otherwise, use the explicit display name
@@ -692,6 +843,8 @@ export function renderASTWithCursor(
 			}
 
 			// Check if cursor should be at the end of this text node
+			// Don't insert cursor at the end if it will be handled by a following bold/italic node
+			// (This is a workaround for the cursor boundary issue)
 			if (!cursorInserted && nodeTextStart + text.length === cursorPos) {
 				html += cursorSpan;
 				cursorInserted = true;
@@ -715,6 +868,17 @@ export function renderASTWithCursor(
 
 	// If cursor wasn't inserted yet and cursorPos is valid (>= 0), add it at the end
 	if (!cursorInserted && cursorPos >= 0) {
+		// Check if the last rendered element was a heading
+		// If so, wrap the cursor in an empty paragraph for better UX
+		const lastChild =
+			node.type === 'document' && node.children && node.children.length > 0
+				? node.children[node.children.length - 1]
+				: null;
+
+		if (lastChild?.type === 'heading' && cursorPos >= lastChild.end) {
+			return `${html}<p>${cursorSpan}</p>`;
+		}
+
 		return html + cursorSpan;
 	}
 

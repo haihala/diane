@@ -13,7 +13,8 @@
 		deleteAtCursor,
 		handleEnterKey,
 		moveCursorUp,
-		moveCursorDown
+		moveCursorDown,
+		handleTabKey
 	} from '$lib/services/cursor';
 	import {
 		extractEntryIdsFromContent,
@@ -39,7 +40,8 @@
 	}
 
 	// eslint-disable-next-line prefer-const
-	let { ast = $bindable({ type: 'document', start: 0, end: 0, children: [] }), ...props }: Props = $props();
+	let { ast = $bindable({ type: 'document', start: 0, end: 0, children: [] }), ...props }: Props =
+		$props();
 	const { onchange, disabled, placeholder, onnavigateup, onctrlenter, onescape, currentEntryId } =
 		props;
 	const disabledValue = $derived(disabled ?? false);
@@ -209,6 +211,17 @@
 			e.preventDefault();
 			isInternalUpdate = true;
 			const { ast: newAST, newPos } = handleEnterKey(ast, cursorPos);
+			ast = newAST;
+			cursorPos = newPos;
+			isInternalUpdate = false;
+			return;
+		}
+
+		// Handle Tab (indent/de-indent in lists)
+		if (e.key === 'Tab') {
+			e.preventDefault();
+			isInternalUpdate = true;
+			const { ast: newAST, newPos } = handleTabKey(ast, cursorPos, e.shiftKey);
 			ast = newAST;
 			cursorPos = newPos;
 			isInternalUpdate = false;
@@ -506,6 +519,12 @@
 
 	.content :global(li) {
 		margin-bottom: var(--spacing-xs);
+	}
+
+	/* Hide bullet point for list items that only contain nested lists */
+	.content :global(li:has(> ul)),
+	.content :global(li:has(> ol)) {
+		list-style-type: none;
 	}
 
 	.content :global(blockquote) {

@@ -6,7 +6,7 @@
 	import Button from '$lib/components/common/Button.svelte';
 	import MarkdownContent from '$lib/components/editor/MarkdownContent.svelte';
 	import { extractEntryIdsFromContent, loadEntryTitles } from '$lib/services/entries';
-	import { astToText, renderASTWithCursor } from '$lib/services/ast';
+	import { astToText, renderASTWithCursor, type ASTNode } from '$lib/services/ast';
 	import { updateWikiNameAndSlug } from '$lib/services/wikis';
 	import { toast } from '$lib/services/toast';
 	import type { PageData } from './$types';
@@ -102,7 +102,7 @@
 	);
 
 	// Render markdown for any page
-	function renderPageHtml(contentAST: import('$lib/services/ast').ASTNode): string {
+	function renderPageHtml(contentAST: ASTNode): string {
 		return renderASTWithCursor(contentAST, -1, entryTitles);
 	}
 </script>

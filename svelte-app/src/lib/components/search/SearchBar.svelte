@@ -342,10 +342,6 @@
 		const text = astToText(entry.contentAST);
 		if (!text) return '';
 
-		// Simply replace double newlines with spaces to separate blocks,
-		// then render AST to resolve wiki links
-		const contentWithSpaces = text.replace(/\n\n+/g, ' ');
-
 		// Render AST to resolve wiki links
 		const renderedHtml = renderASTWithCursor(entry.contentAST, -1, entryTitles);
 

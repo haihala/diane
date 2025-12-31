@@ -60,22 +60,10 @@ export function handleEnterKey(root: ASTNode, pos: number): { ast: ASTNode; newP
 		}
 	}
 
-	// Check if we're in a heading - if so, create paragraph break
+	// Check if we're in a heading - if so, just insert a single newline
 	const node = findNodeAtPosition(root, pos);
 	if (node?.type === 'heading' || isInHeading(root, pos)) {
-		const currentText = astToText(root);
-		const before = currentText.substring(0, pos);
-		const after = currentText.substring(pos);
-		// Insert double newline to create a new paragraph block after the heading
-		const newText = `${before}\n\n${after}`;
-
-		const tokenizer = new MarkdownTokenizer(newText);
-		const tokens = tokenizer.tokenize();
-		const newAST = tokensToAST(tokens);
-
-		// Position cursor after the double newline (ready to start typing new content)
-		const newPos = pos + 2;
-		return { ast: newAST, newPos };
+		return insertTextAtCursor(root, pos, '\n');
 	}
 
 	// Not in a list or heading, just insert a single newline
@@ -142,12 +130,31 @@ function isInHeading(root: ASTNode, pos: number): boolean {
 
 /**
  * Get line and column from cursor position
+ * Returns the visual line/column, handling cases where cursor is on an empty line
+ * after a newline (which visually appears at the end of the previous line)
  */
 export function getLineAndColumn(text: string, pos: number): { line: number; column: number } {
 	const lines = text.substring(0, pos).split('\n');
+	const line = lines.length - 1;
+	const column = lines[lines.length - 1].length;
+
+	// If we're on an empty line (column 0) and it's not the first line,
+	// visually we appear at the end of the previous line
+	if (column === 0 && line > 0) {
+		// Check if this is truly an empty line or just the start of a line with content
+		const allLines = text.split('\n');
+		if (line < allLines.length && allLines[line].length === 0) {
+			// This is an empty line, visually we're at the end of the previous line
+			return {
+				line: line - 1,
+				column: allLines[line - 1].length
+			};
+		}
+	}
+
 	return {
-		line: lines.length - 1,
-		column: lines[lines.length - 1].length
+		line,
+		column
 	};
 }
 
@@ -196,6 +203,78 @@ export function moveCursorDown(root: ASTNode, pos: number): number {
 	}
 
 	return getPositionFromLineColumn(text, line + 1, column);
+}
+
+/**
+ * Find the start of the word at or before the given position
+ */
+function findWordStart(text: string, pos: number): number {
+	if (pos <= 0) return 0;
+
+	// Move back to skip any whitespace at current position
+	let i = pos - 1;
+	while (i > 0 && /\s/.test(text[i])) {
+		i--;
+	}
+
+	// Now move back to the start of the word
+	while (i > 0 && !/\s/.test(text[i - 1])) {
+		i--;
+	}
+
+	return i;
+}
+
+/**
+ * Find the end of the word at or after the given position
+ */
+function findWordEnd(text: string, pos: number): number {
+	if (pos >= text.length) return text.length;
+
+	// Move forward to skip any whitespace at current position
+	let i = pos;
+	while (i < text.length && /\s/.test(text[i])) {
+		i++;
+	}
+
+	// Now move forward to the end of the word
+	while (i < text.length && !/\s/.test(text[i])) {
+		i++;
+	}
+
+	return i;
+}
+
+/**
+ * Move cursor left one character or one word if ctrl is held
+ */
+export function moveCursorLeft(root: ASTNode, pos: number, ctrl: boolean = false): number {
+	if (pos <= 0) {
+		return 0; // Already at start
+	}
+
+	if (ctrl) {
+		const text = astToText(root);
+		return findWordStart(text, pos);
+	}
+
+	return pos - 1;
+}
+
+/**
+ * Move cursor right one character or one word if ctrl is held
+ */
+export function moveCursorRight(root: ASTNode, pos: number, ctrl: boolean = false): number {
+	const text = astToText(root);
+	if (pos >= text.length) {
+		return text.length; // Already at end
+	}
+
+	if (ctrl) {
+		return findWordEnd(text, pos);
+	}
+
+	return pos + 1;
 }
 
 /**
@@ -258,6 +337,25 @@ export function deleteAtCursor(
 				if (charBefore2 === '-' || charBefore2 === '*' || charBefore2 === '+') {
 					const beforeMarker = pos > 2 ? currentText[pos - 3] : '';
 					if (beforeMarker === '\n' || pos <= 2) {
+						// Check if this is an empty list item
+						if (listContext.isEmptyItem) {
+							// Remove the entire line including the newline before it
+							// Find the start of the line (position after the previous newline)
+							const lineStart = pos > 2 ? pos - 3 : 0; // Position of the newline before "- "
+
+							// Remove from the newline before the marker to the current position
+							const before = currentText.substring(0, lineStart);
+							const after = currentText.substring(pos);
+							const newText = before + after;
+							const newPos = lineStart;
+
+							const tokenizer = new MarkdownTokenizer(newText);
+							const tokens = tokenizer.tokenize();
+							const newAST = tokensToAST(tokens);
+
+							return { ast: newAST, newPos };
+						}
+
 						// Remove "- " entirely
 						const before = currentText.substring(0, pos - 2);
 						const after = currentText.substring(pos);
@@ -284,6 +382,24 @@ export function deleteAtCursor(
 					// Check if we're at start of line
 					const beforeNumber = numStart > 0 ? currentText[numStart - 1] : '';
 					if (beforeNumber === '\n' || numStart === 0) {
+						// Check if this is an empty list item
+						if (listContext.isEmptyItem) {
+							// Remove the entire line including the newline before it
+							const lineStart = numStart > 0 ? numStart - 1 : 0; // Position of the newline before "1. "
+
+							// Remove from the newline before the marker to the current position
+							const before = currentText.substring(0, lineStart);
+							const after = currentText.substring(pos);
+							const newText = before + after;
+							const newPos = lineStart;
+
+							const tokenizer = new MarkdownTokenizer(newText);
+							const tokens = tokenizer.tokenize();
+							const newAST = tokensToAST(tokens);
+
+							return { ast: newAST, newPos };
+						}
+
 						// Remove "1. " or "123. " entirely
 						const before = currentText.substring(0, numStart);
 						const after = currentText.substring(pos);
@@ -338,6 +454,119 @@ export function deleteAtCursor(
 	const tokenizer = new MarkdownTokenizer(newText);
 	const tokens = tokenizer.tokenize();
 	const newAST = tokensToAST(tokens);
+
+	return { ast: newAST, newPos };
+}
+
+/**
+ * Handle Tab key press for list indentation
+ */
+export function handleTabKey(
+	root: ASTNode,
+	pos: number,
+	shift: boolean = false
+): { ast: ASTNode; newPos: number } {
+	const listContext = getListContext(root, pos);
+
+	// Only handle tab in lists
+	if (!listContext?.inList || !listContext.listItem) {
+		// Not in a list, just insert a tab character or do nothing
+		return { ast: root, newPos: pos };
+	}
+
+	const currentText = astToText(root);
+	const listItem = listContext.listItem;
+
+	// Find the start of the line (the position right after the previous newline or start of document)
+	let lineStart = listItem.start;
+	// Walk backwards from listItem.start to find the newline or start of document
+	while (lineStart > 0 && currentText[lineStart - 1] !== '\n') {
+		lineStart--;
+	}
+
+	// Count current indentation (spaces at start of line, before the list marker)
+	let indentCount = 0;
+	let i = lineStart;
+	while (i < currentText.length && currentText[i] === ' ') {
+		indentCount++;
+		i++;
+	}
+
+	// Find the previous list item to determine max allowed indentation
+	let prevLineStart = -1;
+	let prevIndentCount = 0;
+	let isPrevLineList = false;
+
+	// Only look for previous line if we're not at the start
+	if (lineStart > 0) {
+		// Walk backwards from the newline before current line
+		let searchPos = lineStart - 1;
+		
+		// Skip the newline
+		if (searchPos >= 0 && currentText[searchPos] === '\n') {
+			searchPos--;
+		}
+		
+		// Find the start of the previous line
+		while (searchPos >= 0 && currentText[searchPos] !== '\n') {
+			searchPos--;
+		}
+		prevLineStart = searchPos + 1; // Move past the newline (or start at 0 if searchPos is -1)
+		
+		// Count indentation of previous line
+		let j = prevLineStart;
+		while (j < currentText.length && currentText[j] === ' ') {
+			prevIndentCount++;
+			j++;
+		}
+		
+		// Check if previous line is a list item (has a list marker)
+		if (j < currentText.length) {
+			const char = currentText[j];
+			const nextChar = j + 1 < currentText.length ? currentText[j + 1] : '';
+			isPrevLineList = char === '-' || char === '*' || char === '+' || 
+			                 (char >= '0' && char <= '9' && nextChar === '.');
+		}
+	}
+
+	let newIndentCount: number;
+	if (shift) {
+		// De-indent: remove 2 spaces (but not less than 0)
+		newIndentCount = Math.max(0, indentCount - 2);
+	} else {
+		// Indent: add 2 spaces, but not more than one level deeper than previous item
+		if (isPrevLineList && prevLineStart >= 0) {
+			// Can only be at most 2 spaces more than the previous list item
+			const maxIndent = prevIndentCount + 2;
+			newIndentCount = Math.min(indentCount + 2, maxIndent);
+		} else {
+			// No previous list item, allow any indentation
+			newIndentCount = indentCount + 2;
+		}
+	}
+
+	// If indentation wouldn't change, don't do anything
+	if (newIndentCount === indentCount) {
+		return { ast: root, newPos: pos };
+	}
+
+	// Build the new text with updated indentation
+	const indent = ' '.repeat(newIndentCount);
+	const before = currentText.substring(0, lineStart);
+	// Skip the old indentation and get everything from the list marker onwards
+	const afterIndent = i; // Position right after the old indentation
+	const lineContent = currentText.substring(afterIndent); // Everything from marker onwards
+	const newText = before + indent + lineContent;
+
+	// Parse the new text
+	const tokenizer = new MarkdownTokenizer(newText);
+	const tokens = tokenizer.tokenize();
+	const newAST = tokensToAST(tokens);
+
+	// Calculate new cursor position
+	// The cursor position shifts by the difference in indentation
+	const indentDiff = newIndentCount - indentCount;
+	const newPos = pos + indentDiff;
 
 	return { ast: newAST, newPos };
 }
