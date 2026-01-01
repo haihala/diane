@@ -42,6 +42,7 @@ svelte-app/static/    # Static assets (icons, images, fonts)
 - Define interfaces for component props
 - All functions must have explicit return types
 - Use `import type` syntax for type imports
+- **NEVER edit `svelte-app/src/lib/services/editor.test.ts`** - this file is sacred and must not be modified
 
 ### State Management
 
