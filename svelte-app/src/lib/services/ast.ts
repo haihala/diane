@@ -1,4 +1,3 @@
-import { LIST_INDENT_PX_PER_LEVEL } from '$lib/constants';
 import { MarkdownTokenizer, type Token } from './markdown';
 
 const LIST_INDENT_SPACES = 2;
@@ -598,33 +597,33 @@ export function renderASTWithCursor(
 		if (node.type === 'list') {
 			const tag = node.listType === 'ordered' ? 'ol' : 'ul';
 			const items = node.children ?? [];
-			
+
 			// Build nested list structure from flat list items
 			function buildNestedList(items: ASTNode[], level: number = 0): string {
 				if (items.length === 0) return '';
-				
+
 				let html = `<${tag}>`;
 				let i = 0;
-				
+
 				while (i < items.length) {
 					const item = items[i];
 					const currentLevel = item.listLevel ?? 0;
-					
+
 					// Skip items that are not at the current level
 					if (currentLevel < level) {
 						break;
 					}
-					
+
 					if (currentLevel > level) {
 						// This item is deeper than current level, skip it for now
 						i++;
 						continue;
 					}
-					
+
 					// Render list item content
 					const content = item.children?.map((child) => renderNode(child)).join('') ?? '';
 					html += `<li>${content}</li>`;
-					
+
 					// Look ahead for items at a deeper level immediately following this item
 					const nextItem = items[i + 1];
 					if (nextItem && (nextItem.listLevel ?? 0) > currentLevel) {
@@ -635,7 +634,7 @@ export function renderASTWithCursor(
 							nestedItems.push(items[j]);
 							j++;
 						}
-						
+
 						// Create a wrapper list item for the nested list
 						html += `<li>`;
 						html += buildNestedList(nestedItems, currentLevel + 1);
@@ -645,11 +644,11 @@ export function renderASTWithCursor(
 						i++;
 					}
 				}
-				
+
 				html += `</${tag}>`;
 				return html;
 			}
-			
+
 			return buildNestedList(items);
 		}
 

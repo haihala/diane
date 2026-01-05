@@ -1,28 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { MarkdownTokenizer } from '$lib/services/markdown';
-	import {
-		tokensToAST,
-		astToText,
-		renderASTWithCursor,
-		type ASTNode,
-		type EntryTitleMap
-	} from '$lib/services/ast';
-	import {
-		insertTextAtCursor,
-		deleteAtCursor,
-		handleEnterKey,
-		moveCursorUp,
-		moveCursorDown,
-		handleTabKey
-	} from '$lib/services/cursor';
-	import {
-		extractEntryIdsFromContent,
-		loadEntryTitles,
-		createEntry,
-		updateEntry,
-		getEntryById
-	} from '$lib/services/entries';
+	import type { LinkPopoverData } from '$lib/services/markdownEditor';
+	import { MarkdownEditor } from '$lib/services/markdownEditor';
+	import type { ASTNode } from '$lib/services/ast';
+	import { astToText } from '$lib/services/ast';
+	import { loadEntryTitles, createEntry, updateEntry, getEntryById } from '$lib/services/entries';
 	import type { Entry } from '$lib/types/Entry';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -47,65 +29,84 @@
 	const disabledValue = $derived(disabled ?? false);
 	const placeholderValue = $derived(placeholder ?? '');
 
-	// Editor state
-	let cursorPos = $state(0);
-	let entryTitles = $state<EntryTitleMap>(new Map());
-
 	// Editor DOM reference
 	let editorRef: HTMLDivElement | undefined = $state();
-	let isComposing = $state(false);
-	let isFocused = $state(false);
 
 	// Wiki link popover state
 	let showLinkPopover = $state(false);
 	let linkPopoverPosition = $state({ x: 0, y: 0 });
-	let linkSearchTerm = $state('');
-	let linkStartPos = $state(0);
+	let linkPopoverData = $state<LinkPopoverData | undefined>();
 	let linkSelectorRef: { handleExternalKeydown: (e: KeyboardEvent) => void } | undefined = $state();
 
 	// Track when we're updating AST internally to avoid circular updates
 	let isInternalUpdate = $state(false);
 
-	// Notify parent of AST changes
+	// Create the markdown editor instance
+	const editor = new MarkdownEditor({
+		ast,
+		onchange: (newAST) => {
+			if (!isInternalUpdate) {
+				ast = newAST;
+				onchange?.(newAST);
+			}
+		},
+		onnavigateup,
+		onctrlenter,
+		onescape,
+		onlinkpopovershow: (data) => {
+			linkPopoverData = data;
+			// Calculate popover position
+			if (editorRef) {
+				const rect = editorRef.getBoundingClientRect();
+				linkPopoverPosition = {
+					x: rect.left,
+					y: rect.bottom + 5
+				};
+			}
+			showLinkPopover = true;
+		},
+		onlinkpopoverhide: () => {
+			showLinkPopover = false;
+		},
+		currentEntryId
+	});
+
+	// Sync AST changes from parent to editor
 	$effect(() => {
-		if (!isInternalUpdate && onchange) {
-			onchange(ast);
+		if (!isInternalUpdate) {
+			isInternalUpdate = true;
+			editor.setAST(ast);
+			// Load entry titles when AST changes
+			const text = astToText(ast);
+			const entryIds =
+				text
+					.match(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g)
+					?.map((link) => {
+						const match = link.match(/\[\[([^\]|]+)/);
+						return match ? match[1].trim() : '';
+					})
+					.filter((id) => id !== '') ?? [];
+
+			if (entryIds.length > 0) {
+				void loadEntryTitles(entryIds)
+					.then((titleMap) => {
+						editor.setEntryTitles(titleMap);
+					})
+					.catch((err) => {
+						console.error('Failed to load entry titles:', err);
+					});
+			}
+			isInternalUpdate = false;
 		}
 	});
 
-	// Load entry titles when content changes
-	$effect(() => {
-		const text = astToText(ast);
-		const entryIds = extractEntryIdsFromContent(text);
-		if (entryIds.length > 0) {
-			void loadEntryTitles(entryIds)
-				.then((titleMap) => {
-					entryTitles = titleMap;
-				})
-				.catch((err) => {
-					console.error('Failed to load entry titles:', err);
-				});
-		} else {
-			entryTitles = new Map();
-		}
-	});
-
-	// Rendered HTML with cursor
+	// Rendered HTML
 	const renderedHTML = $derived(() => {
-		// Only show cursor if focused
-		if (isFocused) {
-			return renderASTWithCursor(ast, cursorPos, entryTitles);
-		} else {
-			// Render without cursor when not focused
-			return renderASTWithCursor(ast, -1, entryTitles); // -1 means don't show cursor
-		}
+		return editor.render();
 	});
 
 	// Handle keyboard input
 	function handleKeyDown(e: KeyboardEvent): void {
-		// Ignore events during IME composition
-		if (isComposing) return;
-
 		// If link popover is open, let it handle certain keys
 		if (showLinkPopover && (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter')) {
 			e.preventDefault();
@@ -115,185 +116,24 @@
 			return;
 		}
 
-		// Handle special keys
-		if (e.key === 'Escape') {
-			e.preventDefault();
-			if (showLinkPopover) {
-				showLinkPopover = false;
-			} else {
-				onescape?.();
-			}
-			return;
-		}
-
-		if (e.key === 'Enter' && e.ctrlKey) {
-			e.preventDefault();
-			onctrlenter?.();
-			return;
-		}
-
-		if (e.key === 'ArrowUp' && cursorPos === 0) {
-			e.preventDefault();
-			onnavigateup?.();
-			return;
-		}
-
-		// Handle arrow keys for cursor navigation
-		if (e.key === 'ArrowLeft') {
-			e.preventDefault();
-			cursorPos = Math.max(0, cursorPos - 1);
-			return;
-		}
-
-		if (e.key === 'ArrowRight') {
-			e.preventDefault();
-			const maxPos = astToText(ast).length;
-			cursorPos = Math.min(maxPos, cursorPos + 1);
-			return;
-		}
-
-		if (e.key === 'ArrowUp') {
-			e.preventDefault();
-			cursorPos = moveCursorUp(ast, cursorPos);
-			return;
-		}
-
-		if (e.key === 'ArrowDown') {
-			e.preventDefault();
-			cursorPos = moveCursorDown(ast, cursorPos);
-			return;
-		}
-
-		// Handle text input
-		if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-			e.preventDefault();
-			isInternalUpdate = true;
-			const { ast: newAST, newPos } = insertTextAtCursor(ast, cursorPos, e.key);
-			ast = newAST;
-			cursorPos = newPos;
-			isInternalUpdate = false;
-
-			// Check for [[ trigger after insertion
-			checkForLinkTrigger();
-			return;
-		}
-
-		// Handle Backspace
-		if (e.key === 'Backspace') {
-			e.preventDefault();
-			isInternalUpdate = true;
-			const { ast: newAST, newPos } = deleteAtCursor(ast, cursorPos, false);
-			ast = newAST;
-			cursorPos = newPos;
-			isInternalUpdate = false;
-
-			// Check for [[ trigger after deletion
-			checkForLinkTrigger();
-			return;
-		}
-
-		// Handle Delete
-		if (e.key === 'Delete') {
-			e.preventDefault();
-			isInternalUpdate = true;
-			const { ast: newAST, newPos } = deleteAtCursor(ast, cursorPos, true);
-			ast = newAST;
-			cursorPos = newPos;
-			isInternalUpdate = false;
-
-			// Check for [[ trigger after deletion
-			checkForLinkTrigger();
-			return;
-		}
-
-		// Handle Enter
-		if (e.key === 'Enter') {
-			e.preventDefault();
-			isInternalUpdate = true;
-			const { ast: newAST, newPos } = handleEnterKey(ast, cursorPos);
-			ast = newAST;
-			cursorPos = newPos;
-			isInternalUpdate = false;
-			return;
-		}
-
-		// Handle Tab (indent/de-indent in lists)
-		if (e.key === 'Tab') {
-			e.preventDefault();
-			isInternalUpdate = true;
-			const { ast: newAST, newPos } = handleTabKey(ast, cursorPos, e.shiftKey);
-			ast = newAST;
-			cursorPos = newPos;
-			isInternalUpdate = false;
-			return;
-		}
-	}
-
-	// Check for [[ trigger to show link selector
-	function checkForLinkTrigger(): void {
-		const text = astToText(ast);
-		const textBeforeCursor = text.substring(0, cursorPos);
-		const lastDoubleBracket = textBeforeCursor.lastIndexOf('[[');
-
-		// Check if we have [[ without closing ]]
-		if (lastDoubleBracket !== -1) {
-			const textAfterBracket = textBeforeCursor.substring(lastDoubleBracket);
-			const hasClosing = textAfterBracket.includes(']]');
-
-			if (!hasClosing) {
-				// Extract search term (text after [[)
-				linkSearchTerm = textAfterBracket.substring(2);
-				linkStartPos = lastDoubleBracket;
-
-				// Calculate popover position (approximate - at editor position)
-				if (editorRef) {
-					const rect = editorRef.getBoundingClientRect();
-					linkPopoverPosition = {
-						x: rect.left,
-						y: rect.bottom + 5
-					};
-				}
-
-				showLinkPopover = true;
-				return;
-			}
-		}
-
-		// Hide popover if no valid [[ trigger found
-		showLinkPopover = false;
+		isInternalUpdate = true;
+		editor.handleKeyDown(e);
+		ast = editor.getAST();
+		isInternalUpdate = false;
 	}
 
 	// Handle link selection from popover
 	function handleLinkSelect(entry: Entry): void {
-		const currentText = astToText(ast);
-
-		// Replace [[ and search term with wiki link
-		const beforeLink = currentText.substring(0, linkStartPos);
-		let afterCursor = currentText.substring(cursorPos);
-
-		// Check if ]] already exists right after cursor and skip it if present
-		if (afterCursor.startsWith(']]')) {
-			afterCursor = afterCursor.substring(2);
-		}
-
-		const wikiLink = `[[${entry.id}]]`;
-		const newText = beforeLink + wikiLink + afterCursor;
-
-		// Re-parse to get new AST
-		const tokenizer = new MarkdownTokenizer(newText);
-		const tokens = tokenizer.tokenize();
 		isInternalUpdate = true;
-		ast = tokensToAST(tokens);
-
-		// Position cursor after the inserted link
-		cursorPos = linkStartPos + wikiLink.length;
-
+		editor.insertWikiLink(entry.id);
+		ast = editor.getAST();
 		showLinkPopover = false;
 		isInternalUpdate = false;
 	}
 
 	// Close link popover
 	function handleLinkPopoverClose(): void {
+		editor.closeLinkPopover();
 		showLinkPopover = false;
 	}
 
@@ -304,24 +144,10 @@
 			const emptyAST: ASTNode = { type: 'document', start: 0, end: 0, children: [] };
 			const newEntry = await createEntry({ title, contentAST: emptyAST });
 
-			// Insert the link in the current content
-			const currentText = astToText(ast);
-			const beforeLink = currentText.substring(0, linkStartPos);
-			let afterCursor = currentText.substring(cursorPos);
-
-			// Check if ]] already exists right after cursor and skip it if present
-			if (afterCursor.startsWith(']]')) {
-				afterCursor = afterCursor.substring(2);
-			}
-
-			const wikiLink = `[[${newEntry.id}]]`;
-			const newText = beforeLink + wikiLink + afterCursor;
-
-			// Re-parse to get new AST
-			const tokenizer = new MarkdownTokenizer(newText);
-			const tokens = tokenizer.tokenize();
+			// Insert the link using the editor
 			isInternalUpdate = true;
-			ast = tokensToAST(tokens);
+			editor.insertWikiLink(newEntry.id);
+			ast = editor.getAST();
 
 			// If editing an existing entry, save the updated content with the link
 			if (currentEntryId) {
@@ -349,18 +175,14 @@
 
 	// Handle IME composition
 	function handleCompositionStart(): void {
-		isComposing = true;
+		editor.handleCompositionStart();
 	}
 
 	function handleCompositionEnd(e: CompositionEvent): void {
-		isComposing = false;
-		if (e.data) {
-			isInternalUpdate = true;
-			const { ast: newAST, newPos } = insertTextAtCursor(ast, cursorPos, e.data);
-			ast = newAST;
-			cursorPos = newPos;
-			isInternalUpdate = false;
-		}
+		isInternalUpdate = true;
+		editor.handleCompositionEnd(e);
+		ast = editor.getAST();
+		isInternalUpdate = false;
 	}
 
 	// Focus management
@@ -369,11 +191,11 @@
 	}
 
 	function handleFocus(): void {
-		isFocused = true;
+		editor.setFocused(true);
 	}
 
 	function handleBlur(): void {
-		isFocused = false;
+		editor.setFocused(false);
 	}
 
 	onMount(() => {
@@ -405,10 +227,10 @@
 	</div>
 </div>
 
-{#if showLinkPopover}
+{#if showLinkPopover && linkPopoverData}
 	<LinkSelectorPopover
 		bind:this={linkSelectorRef}
-		searchTerm={linkSearchTerm}
+		searchTerm={linkPopoverData.searchTerm}
 		position={linkPopoverPosition}
 		onSelect={handleLinkSelect}
 		onClose={handleLinkPopoverClose}

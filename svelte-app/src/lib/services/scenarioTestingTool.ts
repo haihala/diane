@@ -5,24 +5,9 @@
  * and the expected output HTML/text they should produce.
  */
 
-import {
-	tokensToAST,
-	astToText,
-	renderASTWithCursor,
-	type ASTNode,
-	type EntryTitleMap
-} from './ast';
+import { tokensToAST, astToText, type ASTNode, type EntryTitleMap } from './ast';
 import { MarkdownTokenizer } from './markdown';
-import {
-	insertTextAtCursor,
-	deleteAtCursor,
-	handleEnterKey,
-	moveCursorUp,
-	moveCursorDown,
-	moveCursorLeft,
-	moveCursorRight,
-	handleTabKey
-} from './cursor';
+import { MarkdownEditor } from './markdownEditor';
 
 /**
  * Represents a single keypress or input action
@@ -157,73 +142,74 @@ export function applyKeypress(
 	keypress: KeyPress,
 	entryTitleMap?: EntryTitleMap
 ): EditorState {
-	let newAst = state.ast;
-	let newPos = state.cursorPos;
-
-	// Check if ctrl modifier is present
-	const hasCtrl = keypress.modifiers?.includes('ctrl') ?? false;
-	const hasShift = keypress.modifiers?.includes('shift') ?? false;
-
-	switch (keypress.type) {
-		case 'char':
-			if (keypress.char) {
-				const result = insertTextAtCursor(state.ast, state.cursorPos, keypress.char);
-				newAst = result.ast;
-				newPos = result.newPos;
-			}
-			break;
-
-		case 'enter': {
-			const enterResult = handleEnterKey(state.ast, state.cursorPos);
-			newAst = enterResult.ast;
-			newPos = enterResult.newPos;
-			break;
-		}
-
-		case 'backspace': {
-			const backspaceResult = deleteAtCursor(state.ast, state.cursorPos, false);
-			newAst = backspaceResult.ast;
-			newPos = backspaceResult.newPos;
-			break;
-		}
-
-		case 'delete': {
-			const deleteResult = deleteAtCursor(state.ast, state.cursorPos, true);
-			newAst = deleteResult.ast;
-			newPos = deleteResult.newPos;
-			break;
-		}
-
-		case 'up': {
-			newPos = moveCursorUp(state.ast, state.cursorPos);
-			break;
-		}
-
-		case 'down': {
-			newPos = moveCursorDown(state.ast, state.cursorPos);
-			break;
-		}
-
-		case 'left': {
-			newPos = moveCursorLeft(state.ast, state.cursorPos, hasCtrl);
-			break;
-		}
-
-		case 'right': {
-			newPos = moveCursorRight(state.ast, state.cursorPos, hasCtrl);
-			break;
-		}
-
-		case 'tab': {
-			const tabResult = handleTabKey(state.ast, state.cursorPos, hasShift);
-			newAst = tabResult.ast;
-			newPos = tabResult.newPos;
-			break;
-		}
+	// Create a temporary editor instance to handle the keypress
+	const editor = new MarkdownEditor({
+		ast: state.ast
+	});
+	editor.setCursorPos(state.cursorPos);
+	editor.setFocused(true);
+	if (entryTitleMap) {
+		editor.setEntryTitles(entryTitleMap);
 	}
 
+	// Create a synthetic KeyboardEvent for the keypress
+	const modifiers = keypress.modifiers ?? [];
+	const hasCtrl = modifiers.includes('ctrl');
+	const hasShift = modifiers.includes('shift');
+	const hasAlt = modifiers.includes('alt');
+	const hasMeta = modifiers.includes('meta');
+
+	let keyEventKey: string;
+	switch (keypress.type) {
+		case 'char':
+			keyEventKey = keypress.char ?? '';
+			break;
+		case 'enter':
+			keyEventKey = 'Enter';
+			break;
+		case 'backspace':
+			keyEventKey = 'Backspace';
+			break;
+		case 'delete':
+			keyEventKey = 'Delete';
+			break;
+		case 'up':
+			keyEventKey = 'ArrowUp';
+			break;
+		case 'down':
+			keyEventKey = 'ArrowDown';
+			break;
+		case 'left':
+			keyEventKey = 'ArrowLeft';
+			break;
+		case 'right':
+			keyEventKey = 'ArrowRight';
+			break;
+		case 'tab':
+			keyEventKey = 'Tab';
+			break;
+		default:
+			keyEventKey = '';
+	}
+
+	// Create a minimal KeyboardEvent-like object
+	const fakeEvent = {
+		key: keyEventKey,
+		ctrlKey: hasCtrl,
+		shiftKey: hasShift,
+		altKey: hasAlt,
+		metaKey: hasMeta,
+		preventDefault: () => {},
+		stopPropagation: () => {}
+	} as KeyboardEvent;
+
+	// Handle the keypress
+	editor.handleKeyDown(fakeEvent);
+
+	const newAst = editor.getAST();
+	const newPos = editor.getCursorPos();
 	const text = astToText(newAst);
-	const html = renderASTWithCursor(newAst, newPos, entryTitleMap);
+	const html = editor.render();
 
 	return { ast: newAst, cursorPos: newPos, text, html };
 }
@@ -250,11 +236,14 @@ export function applyKeypresses(
  */
 export function createEmptyEditorState(): EditorState {
 	const ast: ASTNode = { type: 'document', start: 0, end: 0, children: [] };
+	const editor = new MarkdownEditor({ ast });
+	editor.setFocused(true);
+
 	return {
 		ast,
 		cursorPos: 0,
 		text: '',
-		html: '<span class="cursor" data-cursor="true"></span>'
+		html: editor.render()
 	};
 }
 
@@ -270,7 +259,14 @@ export function createEditorState(
 	const tokens = tokenizer.tokenize();
 	const ast = tokensToAST(tokens);
 	const pos = cursorPos ?? text.length;
-	const html = renderASTWithCursor(ast, pos, entryTitleMap);
+
+	const editor = new MarkdownEditor({ ast });
+	editor.setCursorPos(pos);
+	editor.setFocused(true);
+	if (entryTitleMap) {
+		editor.setEntryTitles(entryTitleMap);
+	}
+	const html = editor.render();
 
 	return { ast, cursorPos: pos, text, html };
 }

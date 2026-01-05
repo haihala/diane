@@ -501,31 +501,34 @@ export function handleTabKey(
 	if (lineStart > 0) {
 		// Walk backwards from the newline before current line
 		let searchPos = lineStart - 1;
-		
+
 		// Skip the newline
 		if (searchPos >= 0 && currentText[searchPos] === '\n') {
 			searchPos--;
 		}
-		
+
 		// Find the start of the previous line
 		while (searchPos >= 0 && currentText[searchPos] !== '\n') {
 			searchPos--;
 		}
 		prevLineStart = searchPos + 1; // Move past the newline (or start at 0 if searchPos is -1)
-		
+
 		// Count indentation of previous line
 		let j = prevLineStart;
 		while (j < currentText.length && currentText[j] === ' ') {
 			prevIndentCount++;
 			j++;
 		}
-		
+
 		// Check if previous line is a list item (has a list marker)
 		if (j < currentText.length) {
 			const char = currentText[j];
 			const nextChar = j + 1 < currentText.length ? currentText[j + 1] : '';
-			isPrevLineList = char === '-' || char === '*' || char === '+' || 
-			                 (char >= '0' && char <= '9' && nextChar === '.');
+			isPrevLineList =
+				char === '-' ||
+				char === '*' ||
+				char === '+' ||
+				(char >= '0' && char <= '9' && nextChar === '.');
 		}
 	}
 
