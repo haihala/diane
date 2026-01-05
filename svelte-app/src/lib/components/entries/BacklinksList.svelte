@@ -11,12 +11,12 @@
 </script>
 
 {#if isLoading || backlinks.length > 0}
-	<div class="backlinks-section">
+	<div class="backlinks-section" data-testid="backlinks-section">
 		<h3 class="backlinks-title">Backlinks</h3>
 		{#if isLoading}
 			<p class="backlinks-empty">Loading backlinks...</p>
 		{:else}
-			<ul class="backlinks-list">
+			<ul class="backlinks-list" data-testid="backlinks-list">
 				{#each backlinks as backlink (backlink.id)}
 					<li class="backlink-item">
 						<button type="button" class="backlink-button" onclick={() => onBacklinkClick(backlink)}>

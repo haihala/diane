@@ -137,6 +137,169 @@ test.describe('Note Management', () => {
 			page.locator(`[data-testid="markdown-editor"]:has-text("${testText}")`)
 		).toBeVisible();
 	});
+
+	test('should create wiki links and show backlinks', async ({ authenticatedPage: page }) => {
+		await page.waitForLoadState('networkidle');
+
+		// Create first entry (Entry A)
+		const searchInput = page.locator('[data-testid="search-input"]');
+		await searchInput.fill('Entry A for Wiki Links');
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/entries/new**');
+
+		// Save and capture the entry ID from URL
+		await page.keyboard.press('Control+Enter');
+		await page.waitForURL('**/', { timeout: 5000 });
+
+		// Search for Entry A to get its ID
+		await searchInput.fill('Entry A for Wiki Links');
+		await page.waitForSelector('[data-testid="search-result-option"]', { timeout: 5000 });
+		await page.locator('[data-testid="search-result-option"]').first().click();
+		await page.waitForURL('**/entries/**');
+
+		// Extract entry ID from URL
+		const entryAUrl = page.url();
+		const entryAId = entryAUrl.split('/entries/')[1];
+
+		// Navigate back using Escape
+		await page.keyboard.press('Escape');
+		await page.waitForURL('**/', { timeout: 5000 });
+
+		// Create second entry (Entry B) with a wiki link to Entry A
+		await searchInput.fill('Entry B with Link');
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/entries/new**');
+
+		// Add wiki link in the editor
+		const editor = page.locator('[data-testid="markdown-editor"]');
+		await editor.click();
+		await page.keyboard.type(`This links to [[${entryAId}|Entry A]]`);
+
+		// Save Entry B
+		await page.keyboard.press('Control+Enter');
+		await page.waitForURL('**/', { timeout: 5000 });
+
+		// Wait a moment for backlinks to be calculated
+		await page.waitForTimeout(1000);
+
+		// Now go back to Entry A and verify backlink appears
+		await searchInput.fill('Entry A for Wiki Links');
+		await page.waitForSelector('[data-testid="search-result-option"]', { timeout: 5000 });
+		await page.locator('[data-testid="search-result-option"]').first().click();
+		await page.waitForURL('**/entries/**');
+
+		// Wait for backlinks to load
+		await page.waitForTimeout(1000);
+
+		// Verify backlink section shows Entry B
+		const backlinksSection = page.locator('[data-testid="backlinks-list"]');
+		await expect(backlinksSection).toBeVisible();
+		await expect(backlinksSection).toContainText('Entry B with Link');
+	});
+
+	test('should extract tags from title and make them searchable', async ({
+		authenticatedPage: page
+	}) => {
+		await page.waitForLoadState('networkidle');
+
+		// Create entry with tags
+		const uniqueTitle = `Tagged Note ${Date.now()}`;
+		const searchInput = page.locator('[data-testid="search-input"]');
+		await searchInput.fill(uniqueTitle);
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/entries/new**');
+
+		// Update the title to include tags
+		const titleInput = page.locator('input[type="text"]').first();
+		await titleInput.fill(`${uniqueTitle} #testing #e2e`);
+
+		const editor = page.locator('[data-testid="markdown-editor"]');
+		await editor.click();
+		await page.keyboard.type('Content for tagged note');
+		await page.keyboard.press('Control+Enter');
+		await page.waitForURL('**/', { timeout: 5000 });
+
+		// Search by the note title to verify tags are displayed
+		await searchInput.fill(uniqueTitle);
+		await page.waitForSelector('[data-testid="search-result-option"]', { timeout: 5000 });
+
+		// Verify our entry appears with tags
+		const searchResults = page.locator('[data-testid="search-result-option"]').first();
+		await expect(searchResults).toBeVisible();
+		await expect(searchResults).toContainText(uniqueTitle);
+		await expect(searchResults).toContainText('#testing');
+		await expect(searchResults).toContainText('#e2e');
+	});
+
+	test('should save entry with Ctrl+Enter', async ({ authenticatedPage: page }) => {
+		await page.waitForLoadState('networkidle');
+
+		// Create a new entry
+		const uniqueTitle = `Save Test ${Date.now()}`;
+		const searchInput = page.locator('[data-testid="search-input"]');
+		await searchInput.fill(uniqueTitle);
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/entries/new**');
+
+		// Add content and save with Ctrl+Enter
+		const editor = page.locator('[data-testid="markdown-editor"]');
+		await editor.click();
+		await page.keyboard.type('This content was saved with Ctrl+Enter');
+		await page.keyboard.press('Control+Enter');
+		await page.waitForURL('**/', { timeout: 5000 });
+
+		// Open the entry again and verify content
+		await searchInput.fill(uniqueTitle);
+		await page.waitForSelector('[data-testid="search-result-option"]', { timeout: 5000 });
+		await page.locator('[data-testid="search-result-option"]').first().click();
+		await page.waitForURL('**/entries/**');
+
+		// Verify the content was saved
+		await expect(page.locator('[data-testid="markdown-editor"]')).toContainText(
+			'This content was saved with Ctrl+Enter'
+		);
+	});
+
+	test('should delete entry and remove from search', async ({ authenticatedPage: page }) => {
+		await page.waitForLoadState('networkidle');
+
+		// Create entry to delete
+		const uniqueTitle = `Delete Test ${Date.now()}`;
+		const searchInput = page.locator('[data-testid="search-input"]');
+		await searchInput.fill(uniqueTitle);
+		await page.keyboard.press('Enter');
+		await page.waitForURL('**/entries/new**');
+
+		const editor = page.locator('[data-testid="markdown-editor"]');
+		await editor.click();
+		await page.keyboard.type('This entry will be deleted');
+		await page.keyboard.press('Control+Enter');
+		await page.waitForURL('**/', { timeout: 5000 });
+
+		// Open the entry
+		await searchInput.fill(uniqueTitle);
+		await page.waitForSelector('[data-testid="search-result-option"]', { timeout: 5000 });
+		await page.locator('[data-testid="search-result-option"]').first().click();
+		await page.waitForURL('**/entries/**');
+
+		// Set up dialog handler to accept the confirmation
+		page.on('dialog', (dialog) => dialog.accept());
+
+		// Delete using keyboard shortcut
+		await page.keyboard.press('Control+Shift+D');
+
+		// Wait for deletion and navigation back home
+		await page.waitForURL('**/', { timeout: 5000 });
+
+		// Search for the deleted entry - should not appear
+		await searchInput.fill(uniqueTitle);
+
+		// Wait a moment for search to process
+		await page.waitForTimeout(1000);
+
+		// Verify "Create new entry" option appears (meaning no existing entry found)
+		await expect(page.locator('[data-testid="create-new-entry-option"]')).toBeVisible();
+	});
 });
 
 export { test, expect };
