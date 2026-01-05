@@ -364,6 +364,7 @@
 				bind:this={inputElement}
 				type="text"
 				class="search-input"
+				data-testid="search-input"
 				placeholder={dynamicPlaceholder}
 				bind:value={inputValue}
 				onfocus={handleFocus}

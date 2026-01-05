@@ -11,10 +11,49 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+
       - run: |
           cd svelte-app
           npm ci
           npm run validate
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+      - name: Install Playwright Browsers
+        run: |
+          cd svelte-app
+          npx playwright install --with-deps chromium
+      - name: Run E2E Tests
+        run: |
+          firebase emulators:start --only auth,firestore --project demo-test &
+          EMULATOR_PID=$!
+
+          echo "Waiting for Firebase emulators to start..."
+          timeout 60 bash -c 'until curl -s http://localhost:8080 > /dev/null 2>&1; do sleep 1; done'
+          echo "Firebase emulators ready"
+
+          cd svelte-app
+          npm run dev -- --host &
+          DEV_PID=$!
+
+          echo "Waiting for dev server to start..."
+          timeout 60 bash -c 'until curl -s http://localhost:5173 > /dev/null 2>&1; do sleep 1; done'
+          echo "Dev server ready"
+
+          npm run test:e2e
+          TEST_EXIT_CODE=$?
+
+          kill $EMULATOR_PID $DEV_PID || true
+
+          exit $TEST_EXIT_CODE
+        env:
+          PUBLIC_FIREBASE_API_KEY: ${{ secrets.PUBLIC_FIREBASE_API_KEY }}
+          PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.PUBLIC_FIREBASE_PROJECT_ID }}
+
+      - name: Build
+        run: |
+          cd svelte-app
           npm run build
         env:
           PUBLIC_FIREBASE_API_KEY: ${{ secrets.PUBLIC_FIREBASE_API_KEY }}

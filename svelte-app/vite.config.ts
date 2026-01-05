@@ -5,7 +5,8 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	test: {
 		globals: true,
-		environment: 'jsdom'
+		environment: 'jsdom',
+		exclude: ['node_modules', 'tests/e2e/**']
 	},
 	resolve: {
 		conditions: ['browser']

@@ -26,6 +26,7 @@
 	type="button"
 	class="popover-option"
 	class:selected={isSelected}
+	data-testid={type === 'new' ? 'create-new-entry-option' : 'search-result-option'}
 	role="option"
 	aria-selected={isSelected}
 	{onclick}

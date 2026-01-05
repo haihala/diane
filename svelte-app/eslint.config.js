@@ -66,7 +66,7 @@ export default defineConfig(
 		files: ['**/*.ts'],
 		languageOptions: {
 			parserOptions: {
-				project: './tsconfig.eslint.json',
+				project: './tsconfig.json',
 				tsconfigRootDir: import.meta.dirname
 			}
 		},
@@ -90,7 +90,7 @@ export default defineConfig(
 		files: ['**/*.svelte.ts'],
 		languageOptions: {
 			parserOptions: {
-				project: './tsconfig.eslint.json',
+				project: './tsconfig.json',
 				tsconfigRootDir: import.meta.dirname,
 				extraFileExtensions: ['.svelte.ts'],
 				parser: ts.parser,
@@ -117,7 +117,7 @@ export default defineConfig(
 		files: ['**/*.svelte'],
 		languageOptions: {
 			parserOptions: {
-				project: './tsconfig.eslint.json',
+				project: './tsconfig.json',
 				tsconfigRootDir: import.meta.dirname,
 				extraFileExtensions: ['.svelte'],
 				parser: ts.parser,

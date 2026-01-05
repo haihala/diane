@@ -39,15 +39,22 @@
 	let linkSelectorRef: { handleExternalKeydown: (e: KeyboardEvent) => void } | undefined = $state();
 
 	// Track when we're updating AST internally to avoid circular updates
-	let isInternalUpdate = $state(false);
+	let isInternalUpdate = false;
+
+	// Rendered HTML state - updated explicitly rather than derived
+	let renderedHTML = $state('');
 
 	// Create the markdown editor instance
 	const editor = new MarkdownEditor({
 		ast,
 		onchange: (newAST) => {
 			if (!isInternalUpdate) {
+				isInternalUpdate = true;
 				ast = newAST;
 				onchange?.(newAST);
+				// Update render after AST change
+				renderedHTML = editor.render();
+				isInternalUpdate = false;
 			}
 		},
 		onnavigateup,
@@ -73,9 +80,11 @@
 
 	// Sync AST changes from parent to editor
 	$effect(() => {
+		// Only update if the AST reference actually changed from outside
 		if (!isInternalUpdate) {
 			isInternalUpdate = true;
 			editor.setAST(ast);
+
 			// Load entry titles when AST changes
 			const text = astToText(ast);
 			const entryIds =
@@ -91,18 +100,20 @@
 				void loadEntryTitles(entryIds)
 					.then((titleMap) => {
 						editor.setEntryTitles(titleMap);
+						// Re-render after titles load
+						renderedHTML = editor.render();
 					})
 					.catch((err) => {
 						console.error('Failed to load entry titles:', err);
 					});
+			} else {
+				editor.setEntryTitles(new Map());
 			}
+
+			// Update render
+			renderedHTML = editor.render();
 			isInternalUpdate = false;
 		}
-	});
-
-	// Rendered HTML
-	const renderedHTML = $derived(() => {
-		return editor.render();
 	});
 
 	// Handle keyboard input
@@ -119,6 +130,7 @@
 		isInternalUpdate = true;
 		editor.handleKeyDown(e);
 		ast = editor.getAST();
+		renderedHTML = editor.render();
 		isInternalUpdate = false;
 	}
 
@@ -127,6 +139,7 @@
 		isInternalUpdate = true;
 		editor.insertWikiLink(entry.id);
 		ast = editor.getAST();
+		renderedHTML = editor.render();
 		showLinkPopover = false;
 		isInternalUpdate = false;
 	}
@@ -148,6 +161,7 @@
 			isInternalUpdate = true;
 			editor.insertWikiLink(newEntry.id);
 			ast = editor.getAST();
+			renderedHTML = editor.render();
 
 			// If editing an existing entry, save the updated content with the link
 			if (currentEntryId) {
@@ -182,6 +196,7 @@
 		isInternalUpdate = true;
 		editor.handleCompositionEnd(e);
 		ast = editor.getAST();
+		renderedHTML = editor.render();
 		isInternalUpdate = false;
 	}
 
@@ -192,10 +207,12 @@
 
 	function handleFocus(): void {
 		editor.setFocused(true);
+		renderedHTML = editor.render();
 	}
 
 	function handleBlur(): void {
 		editor.setFocused(false);
+		renderedHTML = editor.render();
 	}
 
 	onMount(() => {
@@ -209,6 +226,7 @@
 	bind:this={editorRef}
 	class="ast-editor"
 	class:disabled={disabledValue}
+	data-testid="markdown-editor"
 	tabindex="0"
 	role="textbox"
 	aria-multiline="true"
@@ -223,7 +241,7 @@
 	{/if}
 	<div class="content">
 		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-		{@html renderedHTML()}
+		{@html renderedHTML}
 	</div>
 </div>
 

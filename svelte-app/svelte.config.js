@@ -13,7 +13,15 @@ const config = {
 		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
 		adapter: adapter({
 			fallback: 'index.html' // SPA mode for client-side routing with Firebase auth
-		})
+		}),
+		typescript: {
+			config(config) {
+				return {
+					...config,
+					include: [...config.include, '../playwright.config.ts']
+				};
+			}
+		}
 	}
 };
 

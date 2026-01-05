@@ -11,12 +11,8 @@ import {
 // Firebase configuration
 // Environment variables are replaced at build time by Vite
 const firebaseConfig = {
-	// I think the tsconfig used by eslint (separate for speedup purposes) is not picking up on the module definition in app.d.ts.
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 	apiKey: PUBLIC_FIREBASE_API_KEY ?? 'demo-api-key',
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 	authDomain: PUBLIC_FIREBASE_AUTH_DOMAIN ?? 'diane-prod.firebaseapp.com',
-	// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 	projectId: PUBLIC_FIREBASE_PROJECT_ID ?? 'diane-prod'
 };
 
