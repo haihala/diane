@@ -1,4 +1,4 @@
-name: Deploy to Firebase Hosting on merge
+name: Build, Test & Deploy
 on:
   push:
     branches:
@@ -7,20 +7,35 @@ jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 22
 
-      - run: |
-          cd svelte-app
-          npm ci
-          npm run validate
-
-      - uses: actions/setup-java@v5
+      - name: Setup Java
+        uses: actions/setup-java@v5
         with:
           distribution: 'temurin'
           java-version: '21'
+
+      - name: Install dependencies
+        working-directory: svelte-app
+        run: npm ci
+
+      - name: Run linting, unit tests, and type checks
+        working-directory: svelte-app
+        run: npm run validate
+
+      - name: Build application
+        working-directory: svelte-app
+        run: npm run build
+        env:
+          PUBLIC_FIREBASE_API_KEY: ${{ secrets.PUBLIC_FIREBASE_API_KEY }}
+          PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.PUBLIC_FIREBASE_PROJECT_ID }}
 
       - name: Cache Firebase Emulators
         uses: actions/cache@v4
@@ -30,13 +45,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-firebase-emulators-
 
-      - name: Install Firebase CLI
-        run: npm install -g firebase-tools
-      - name: Install Playwright Browsers
+      - name: Install E2E testing dependencies
+        working-directory: svelte-app
         run: |
-          cd svelte-app
+          npm install -g firebase-tools
           npx playwright install --with-deps chromium
-      - name: Run E2E Tests
+
+      - name: Run E2E tests
         run: |
           firebase emulators:start --only auth,firestore --project demo-test &
           EMULATOR_PID=$!
@@ -59,26 +74,21 @@ jobs:
           kill $EMULATOR_PID $DEV_PID || true
 
           exit $TEST_EXIT_CODE
+        # Not fully certain these are needed
         env:
           PUBLIC_FIREBASE_API_KEY: ${{ secrets.PUBLIC_FIREBASE_API_KEY }}
           PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.PUBLIC_FIREBASE_AUTH_DOMAIN }}
           PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.PUBLIC_FIREBASE_PROJECT_ID }}
 
-      - name: Build
-        run: |
-          cd svelte-app
-          npm run build
-        env:
-          PUBLIC_FIREBASE_API_KEY: ${{ secrets.PUBLIC_FIREBASE_API_KEY }}
-          PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.PUBLIC_FIREBASE_AUTH_DOMAIN }}
-          PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.PUBLIC_FIREBASE_PROJECT_ID }}
-      - uses: FirebaseExtended/action-hosting-deploy@v0
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_DIANE_PROD }}
           channelId: live
           projectId: diane-prod
-      - name: Deploy Firestore Rules and Indexes
+
+      - name: Deploy Firestore rules and indexes
         uses: w9jds/firebase-action@master
         with:
           args: deploy --only firestore:rules,firestore:indexes
